@@ -1,0 +1,13 @@
+{
+  "name": "phoenix-team-manager",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Equipment and travel app for the Wellington Phoenix first team",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.23.1"
+  }
+}

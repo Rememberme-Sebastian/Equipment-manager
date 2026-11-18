@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="en-NZ">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phoenix Team Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a phone-first kit room board. Sticky clock bar, tab strip, then stacked cards.
+   Session chips reuse the colours of the club's season schedule sheet. */
+:root {
+  --bg: #eef0ee;
+  --surface: #ffffff;
+  --ink: #15181b;
+  --muted: #5b636b;
+  --line: #d9ddda;
+  --accent: #f2c200;
+  --accent-ink: #1a1500;
+  --ok: #1e7d47;
+  --warn: #9a5a00;
+  --bad: #b3261e;
+  --tt: #e23fb8; --tt-ink: #ffffff;
+  --gym: #7ea9e3; --gym-ink: #0d1f3b;
+  --bike: #ddd3bb; --bike-ink: #3a3220;
+  --rec: #f2a52a; --rec-ink: #2a1800;
+  --off: #e3e5e3; --off-ink: #4a5157;
+  --travel: #ece6fb; --travel-ink: #4b2fa3;
+  --home: #ffe14d; --home-ink: #2a2200;
+  --away: #9be34a; --away-ink: #16300a;
+  --tbc: #f6b73c; --tbc-ink: #2a1a00;
+  --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --body: "Barlow", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --radius: 12px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111416; --surface: #1a1e21; --ink: #eceff1; --muted: #9aa2a9; --line: #2c3237;
+    --off: #2b3034; --off-ink: #c7ccd0; --travel: #2c2547; --travel-ink: #cbbdff; --bike: #cfc4a8;
+    --ok: #4cc27f; --warn: #f0b04a; --bad: #ff7a70;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111416; --surface: #1a1e21; --ink: #eceff1; --muted: #9aa2a9; --line: #2c3237;
+  --off: #2b3034; --off-ink: #c7ccd0; --travel: #2c2547; --travel-ink: #cbbdff; --bike: #cfc4a8;
+  --ok: #4cc27f; --warn: #f0b04a; --bad: #ff7a70;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.45; -webkit-text-size-adjust: 100%; }
+button, input, select, textarea { font: inherit; color: inherit; }
+h1, h2, h3, h4 { margin: 0; text-wrap: balance; }
+.display { font-family: var(--display); font-weight: 700; letter-spacing: 0.01em; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.num, .clock-time, .bs-num, .cd-num { font-variant-numeric: tabular-nums; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.app { max-width: 1040px; margin: 0 auto; padding: 0 16px 48px; }
+.top { position: sticky; top: 0; z-index: 5; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0 10px; background: var(--bg); }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.mark { width: 10px; height: 34px; border-radius: 3px; background: var(--accent); flex: none; }
+.brand h1 { font-family: var(--display); font-size: 22px; line-height: 1.05; }
+.sub { margin: 0; font-size: 12px; color: var(--muted); }
+.clock { display: grid; justify-items: end; gap: 1px; }
+.clock-time { font-family: var(--display); font-size: 22px; font-weight: 700; line-height: 1; }
+.clock-date { font-size: 12px; color: var(--muted); }
+.sync { font-size: 11px; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); display: inline-block; }
+.sync.synced .dot, .sync-line.synced .dot { background: var(--ok); }
+.sync.offline .dot, .sync.slow .dot, .sync-line.offline .dot, .sync-line.slow .dot { background: var(--warn); }
+.sync.readonly .dot { background: var(--bad); }
+
+.tabs { position: sticky; top: 62px; z-index: 4; display: flex; gap: 4px; overflow-x: auto; padding: 4px; margin: 0 0 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs a { flex: none; padding: 7px 14px; border-radius: 999px; text-decoration: none; color: var(--muted); font-weight: 600; font-size: 14px; white-space: nowrap; }
+.tabs a.on { background: var(--ink); color: var(--bg); }
+
+.stack { display: grid; gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; min-width: 0; }
+.section-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.section-title { font-family: var(--display); font-size: 20px; margin-bottom: 6px; }
+.section-head .section-title { margin-bottom: 0; }
+.mini-title { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 4px 0 8px; }
+.eyebrow { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.count { display: inline-block; min-width: 26px; padding: 0 7px; margin-left: 4px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-size: 15px; text-align: center; }
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.note, .note-inline { color: var(--warn); }
+.note { margin: 8px 0 0; font-weight: 600; }
+.warn { color: var(--warn); }
+
+/* buttons and fields */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 38px; padding: 6px 14px; border-radius: 9px; border: 1px solid var(--line); background: var(--surface); font-weight: 600; cursor: pointer; text-align: center; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.btn.print { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.ok { background: var(--ok); color: #fff; border-color: var(--ok); }
+.btn.ghost { background: transparent; }
+.btn.danger { background: var(--bad); color: #fff; border-color: var(--bad); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.danger-text { color: var(--bad); }
+.btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.link-btn { background: none; border: 0; padding: 0 0 0 6px; color: var(--ink); text-decoration: underline; cursor: pointer; font-size: inherit; }
+.icon-btn { width: 36px; height: 36px; flex: none; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-size: 16px; line-height: 1; }
+.icon-btn.danger { color: var(--bad); }
+.field { display: grid; gap: 4px; min-width: 0; }
+.field > span, .field-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 0; }
+input:not([type="checkbox"]):not([type="file"]), select, textarea { width: 100%; min-height: 38px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+textarea { resize: vertical; }
+.small-field input { max-width: 140px; }
+.pill { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 12px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.pill.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.pill.static { cursor: default; background: var(--bg); }
+.pills { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.seg { display: flex; flex-wrap: wrap; gap: 4px; padding: 3px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; }
+.seg button { flex: 1 1 auto; border: 0; background: transparent; padding: 7px 10px; border-radius: 7px; font-weight: 600; font-size: 13px; cursor: pointer; color: var(--muted); }
+.seg button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,0.15); }
+.confirm { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; font-weight: 600; }
+
+/* ticks */
+.tick { display: flex; align-items: flex-start; gap: 10px; padding: 8px 4px; cursor: pointer; border-radius: 8px; min-width: 0; }
+.tick:hover { background: var(--bg); }
+.tick input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.tick .box { flex: none; width: 22px; height: 22px; border: 2px solid var(--muted); border-radius: 6px; display: grid; place-items: center; margin-top: 1px; }
+.tick .box svg { width: 14px; height: 14px; fill: none; stroke: transparent; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.tick.on .box { background: var(--ok); border-color: var(--ok); }
+.tick.on .box svg { stroke: #fff; }
+.tick input:focus-visible + .box { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tick-text { display: grid; min-width: 0; overflow-wrap: anywhere; }
+.tick.on .tick-text { color: var(--muted); }
+.tick-sub { font-size: 12px; color: var(--muted); }
+
+.progress { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.progress .bar { width: 46px; height: 6px; border-radius: 3px; background: var(--off); overflow: hidden; }
+.progress .bar span { display: block; height: 100%; background: var(--accent); }
+.progress.full .bar span { background: var(--ok); }
+.progress.full { color: var(--ok); }
+.badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); white-space: nowrap; }
+
+/* session chips */
+.chips { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.chip-pair { display: inline-flex; gap: 3px; align-items: center; }
+.ampm { font-size: 10px; font-weight: 700; color: var(--muted); margin-right: 1px; }
+.chip { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.02em; white-space: nowrap; }
+.chip.tt { background: var(--tt); color: var(--tt-ink); }
+.chip.gym { background: var(--gym); color: var(--gym-ink); }
+.chip.bike { background: var(--bike); color: var(--bike-ink); }
+.chip.rec { background: var(--rec); color: var(--rec-ink); }
+.chip.off { background: var(--off); color: var(--off-ink); }
+.chip.travel { background: var(--travel); color: var(--travel-ink); }
+.chip.other, .chip.none { background: var(--off); color: var(--off-ink); }
+.chip.none { font-weight: 500; }
+.chip.game.home { background: var(--home); color: var(--home-ink); }
+.chip.game.away { background: var(--away); color: var(--away-ink); }
+.chip.game.tbc { background: var(--tbc); color: var(--tbc-ink); }
+.md { display: inline-block; white-space: nowrap; font-family: var(--display); font-weight: 700; font-size: 15px; padding: 1px 8px; border-radius: 6px; background: var(--ink); color: var(--bg); line-height: 1.4; }
+.md.md-game { background: var(--accent); color: var(--accent-ink); }
+.md.md-after { background: var(--off); color: var(--off-ink); }
+
+/* today */
+.today-hero .th-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+.today-hero h2 { font-size: 30px; line-height: 1.05; }
+.today-hero .md { font-size: 24px; padding: 2px 12px; }
+.next-game { border-left: 6px solid var(--line); }
+.next-game.is-home { border-left-color: var(--home); }
+.next-game.is-away { border-left-color: var(--away); }
+.ng-row { display: flex; justify-content: space-between; gap: 12px; }
+.ng-row h3 { font-size: 26px; line-height: 1.05; margin: 2px 0 4px; }
+.ng-row p { margin: 0; }
+.countdown { display: grid; justify-items: center; align-content: start; min-width: 64px; }
+.cd-num { font-family: var(--display); font-size: 44px; font-weight: 700; line-height: 1; }
+.cd-lbl { font-size: 12px; color: var(--muted); }
+.checklists { display: grid; gap: 14px; }
+.cl-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 2px; }
+.cl p { margin: 2px 0 8px; }
+.rem-row { display: flex; align-items: center; gap: 6px; }
+.rem-row .tick { flex: 1; }
+.rem-row.overdue .tick-sub { color: var(--bad); font-weight: 600; }
+.rem-form { display: grid; gap: 8px; margin-top: 10px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.rem-when { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.rem-when input { width: auto !important; }
+.ahead { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+.ahead-day { display: grid; gap: 6px; justify-items: start; text-align: left; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); cursor: pointer; }
+.ad-date { font-weight: 700; }
+
+/* schedule */
+.week-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.week-label { display: grid; justify-items: center; text-align: center; }
+.week-label .display { font-size: 22px; }
+.days { display: grid; gap: 8px; }
+.day { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.day.is-today { border-color: var(--ink); box-shadow: inset 4px 0 0 var(--accent); }
+.day.is-game { background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 14%, var(--surface)), var(--surface) 60%); }
+.day.is-done .day-head { opacity: 0.62; }
+.day-head { width: 100%; display: grid; grid-template-columns: 52px 1fr auto; gap: 10px; align-items: center; padding: 10px 12px; background: none; border: 0; text-align: left; cursor: pointer; }
+.day-date { display: grid; justify-items: center; line-height: 1.05; }
+.dd-wd { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--muted); }
+.dd-n { font-family: var(--display); font-weight: 700; font-size: 26px; }
+.dd-m { font-size: 11px; color: var(--muted); }
+.day-main { display: grid; gap: 4px; min-width: 0; }
+.day-line { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.today-tag, .done-tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 7px; border-radius: 5px; }
+.today-tag { background: var(--accent); color: var(--accent-ink); }
+.done-tag { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+.day-side { display: grid; justify-items: end; gap: 6px; }
+.chev { color: var(--muted); font-size: 12px; }
+.day-body { padding: 4px 14px 16px; border-top: 1px solid var(--line); display: grid; gap: 14px; }
+.day-edit { display: grid; gap: 10px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.day-edit p { margin: 0; }
+.session-edit { display: flex; gap: 10px; flex-wrap: wrap; }
+.jump { margin-top: 12px; max-width: 220px; }
+.fx-list { display: grid; gap: 6px; margin: 10px 0; }
+.fx { border: 1px solid var(--line); border-radius: 9px; }
+.fx.past { opacity: 0.6; }
+.fx summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 9px 12px; cursor: pointer; list-style: none; }
+.fx summary::-webkit-details-marker { display: none; }
+.fx-date { font-weight: 700; min-width: 92px; }
+.fx-opp { font-weight: 600; }
+.fx-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; padding: 4px 12px 12px; }
+.fx-form .wide { grid-column: 1 / -1; }
+.fx-add { border-top: 1px dashed var(--line); padding-top: 12px; }
+.fx-add .fx-form { padding: 0; }
+
+/* bags */
+.trip-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 8px; }
+.summary-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin: 10px 0 6px; }
+.big-stat { display: grid; }
+.bs-num { font-family: var(--display); font-size: 40px; font-weight: 700; line-height: 1; }
+.bs-num small { font-size: 22px; color: var(--muted); }
+.bs-lbl { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.bags { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; align-items: start; }
+.bag { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; min-width: 0; }
+.bag.packed { border-color: var(--ok); }
+.bag-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.bag-head .tick { flex: 1; }
+.bag-name { font-weight: 700; }
+.bag-toggle { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; padding: 10px 2px; cursor: pointer; flex: none; }
+.bag-edit-closed { flex: 1; display: grid; text-align: left; background: none; border: 0; padding: 8px 4px; cursor: pointer; }
+.bag-edit-head { display: grid; gap: 8px; flex: 1; min-width: 0; }
+.trip-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0 4px; }
+.bag-items { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 4px; }
+.item-row { display: flex; gap: 6px; align-items: center; padding: 2px 0; }
+.item-row .tick { flex: 1; padding: 6px 4px; }
+.item-row > input { flex: 1; }
+.item-row > select { width: 120px !important; flex: none; }
+.bag-danger { margin-top: 8px; }
+.edit-note { border-style: dashed; }
+.edit-note p { margin: 0 0 10px; }
+.carry { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 4px; }
+
+/* lists */
+.list-editor { display: grid; gap: 6px; }
+.le-row { display: flex; gap: 6px; align-items: center; }
+.le-add { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
+.le-add input { flex: 1; }
+
+/* squad */
+.squad-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.plist { display: grid; gap: 4px; max-height: 420px; overflow-y: auto; margin-top: 8px; padding-right: 2px; }
+.prow { display: grid; grid-template-columns: 34px 1fr auto auto; gap: 8px; align-items: center; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); text-align: left; cursor: pointer; }
+.prow:hover { border-color: var(--muted); }
+.prow.sel { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); }
+.pnum { font-family: var(--display); font-weight: 700; font-size: 18px; text-align: center; }
+.pname { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.ppos { font-size: 12px; color: var(--muted); }
+.padd { font-size: 12px; font-weight: 700; color: var(--muted); }
+.sizes { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 8px; }
+.size-box { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; display: grid; gap: 2px; }
+.size-box strong { font-size: 13px; margin-bottom: 2px; }
+.size-line { display: flex; justify-content: space-between; font-size: 14px; }
+.table-wrap { overflow-x: auto; margin-top: 8px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+
+/* player editor */
+.group-label { margin: 8px 0 2px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.ptable td { padding: 4px; vertical-align: middle; }
+.ptable input, .ptable select { min-height: 34px !important; padding: 4px 6px !important; }
+.order-cell { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.order-cell .num { min-width: 20px; font-weight: 700; }
+.order-cell .icon-btn { width: 30px; height: 30px; }
+.w-num { width: 54px !important; } .w-name { width: 170px !important; } .w-pos { width: 56px !important; } .w-size { width: 74px !important; }
+.peditor { display: grid; gap: 10px; }
+
+/* game day */
+.gd-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-top: 12px; }
+.gd-head h2 { font-size: 28px; line-height: 1.05; }
+.gd-head p { margin: 2px 0 8px; }
+
+/* guide */
+.prose p, .prose li { max-width: 68ch; }
+.prose h2 { font-size: 26px; margin-bottom: 6px; }
+.prose h3 { font-family: var(--display); font-size: 20px; margin: 18px 0 6px; }
+.prose ol { padding-left: 20px; display: grid; gap: 4px; }
+.codes { display: grid; gap: 6px; }
+.code-row { display: grid; grid-template-columns: 110px 1fr; gap: 10px; align-items: center; }
+.sync-line { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; }
+.file-btn { position: relative; overflow: hidden; }
+.file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+.toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-weight: 600; z-index: 10; max-width: calc(100% - 32px); }
+
+@media (max-width: 560px) {
+  body { font-size: 15px; }
+  .brand h1 { font-size: 19px; }
+  .sub { display: none; }
+  .clock-time { font-size: 19px; }
+  .tabs { position: static; display: grid; grid-template-columns: repeat(3, 1fr); border-radius: 12px; overflow: visible; }
+  .tabs a { text-align: center; padding: 7px 4px; font-size: 13px; border-radius: 8px; }
+  .day-head { grid-template-columns: 44px 1fr; }
+  .day-side { grid-column: 2; justify-items: start; grid-auto-flow: column; justify-content: start; align-items: center; }
+  .today-hero h2 { font-size: 26px; }
+  .week-nav .btn { padding: 6px 10px; }
+  .item-row > select { width: 96px !important; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script>
+(() => {
+  // src/season_plan.js
+  var SEASON_PLAN = { "2026-10-02": { am: "OFF" }, "2026-10-03": { am: "TT", note: "FIFA international window" }, "2026-10-04": { am: "OFF" }, "2026-10-05": { am: "TT", pm: "GYM" }, "2026-10-06": { am: "TT", pm: "BIKE" }, "2026-10-07": { am: "TT", pm: "GYM", note: "Season launch shoot" }, "2026-10-08": { am: "OFF" }, "2026-10-09": { am: "TT/TRAVEL" }, "2026-10-11": { am: "OFF" }, "2026-10-12": { am: "OFF" }, "2026-10-13": { am: "TT", pm: "GYM", note: "Laws of the Game" }, "2026-10-14": { am: "TT", pm: "BIKE", note: "In town launch" }, "2026-10-15": { am: "TT", pm: "GYM" }, "2026-10-16": { am: "OFF" }, "2026-10-17": { am: "TT" }, "2026-10-19": { am: "REC/TT" }, "2026-10-20": { am: "TT", pm: "GYM" }, "2026-10-21": { am: "TT", pm: "BIKE", note: "PFA presentation" }, "2026-10-22": { am: "TT", pm: "GYM" }, "2026-10-23": { am: "OFF" }, "2026-10-24": { am: "TT" }, "2026-10-26": { am: "REC/TT" }, "2026-10-27": { am: "TT", pm: "BIKE" }, "2026-10-28": { am: "TT", pm: "GYM" }, "2026-10-29": { am: "TRAVEL" }, "2026-10-30": { am: "TT" }, "2026-11-01": { am: "TRAVEL" }, "2026-11-02": { am: "TT", pm: "GYM" }, "2026-11-03": { am: "TT", pm: "BIKE" }, "2026-11-04": { am: "TT", pm: "GYM" }, "2026-11-05": { am: "OFF" }, "2026-11-06": { am: "TT/TRAVEL" }, "2026-11-08": { am: "TRAVEL" }, "2026-11-09": { am: "TT", pm: "GYM" }, "2026-11-10": { am: "TT", pm: "BIKE" }, "2026-11-11": { am: "TT", pm: "GYM" }, "2026-11-12": { am: "OFF" }, "2026-11-13": { am: "TT", note: "FIFA international window" }, "2026-11-14": { am: "TT" }, "2026-11-15": { am: "OFF" }, "2026-11-16": { am: "OFF" }, "2026-11-17": { am: "TT", pm: "GYM" }, "2026-11-18": { am: "TT", pm: "BIKE" }, "2026-11-19": { am: "TT", pm: "GYM" }, "2026-11-20": { am: "OFF" }, "2026-11-21": { am: "TT" }, "2026-11-23": { am: "OFF" }, "2026-11-24": { am: "TT", pm: "GYM" }, "2026-11-25": { am: "TT", pm: "BIKE" }, "2026-11-26": { am: "OFF" }, "2026-11-27": { am: "TT", pm: "GYM" }, "2026-11-28": { am: "TT", pm: "BIKE" }, "2026-11-29": { am: "OFF" }, "2026-11-30": { am: "OFF" }, "2026-12-01": { am: "TT", pm: "GYM" }, "2026-12-02": { am: "TT", pm: "BIKE" }, "2026-12-03": { am: "TT", pm: "GYM" }, "2026-12-04": { am: "OFF" }, "2026-12-05": { am: "TT" }, "2026-12-07": { am: "OFF" }, "2026-12-08": { am: "TT", pm: "GYM" }, "2026-12-09": { am: "TT", pm: "BIKE" }, "2026-12-10": { am: "TT", pm: "GYM" }, "2026-12-11": { am: "OFF" }, "2026-12-12": { am: "TT/TRAVEL" }, "2026-12-14": { am: "TRAVEL" }, "2026-12-15": { am: "TT", pm: "BIKE" }, "2026-12-16": { am: "TT", pm: "GYM" }, "2026-12-17": { am: "OFF" }, "2026-12-18": { am: "TT" }, "2026-12-20": { am: "REC/TT" }, "2026-12-21": { am: "OFF" }, "2026-12-22": { am: "TT" }, "2026-12-23": { am: "TT", pm: "GYM" }, "2026-12-24": { am: "TT", pm: "BIKE" }, "2026-12-25": { am: "OFF" }, "2026-12-26": { am: "TT", pm: "GYM" }, "2026-12-27": { am: "TT" }, "2026-12-28": { am: "TT/TRAVEL" }, "2026-12-30": { am: "TRAVEL" }, "2026-12-31": { am: "REC/TT" }, "2027-01-01": { am: "TT" }, "2027-01-03": { am: "REC/TT" }, "2027-01-04": { am: "OFF" }, "2027-01-05": { am: "TT", pm: "GYM" }, "2027-01-06": { am: "TT", pm: "BIKE" }, "2027-01-07": { am: "TT", pm: "GYM" }, "2027-01-08": { am: "OFF" }, "2027-01-09": { am: "TT/TRAVEL" }, "2027-01-11": { am: "REC/TT", pm: "TRAVEL", note: "Rego 2 opens" }, "2027-01-12": { am: "OFF" }, "2027-01-13": { am: "TT" }, "2027-01-15": { am: "TRAVEL" }, "2027-01-16": { am: "OFF" }, "2027-01-17": { am: "OFF" }, "2027-01-18": { am: "TT", pm: "GYM" }, "2027-01-19": { am: "TT", pm: "BIKE" }, "2027-01-20": { am: "TT", pm: "GYM" }, "2027-01-21": { am: "OFF" }, "2027-01-22": { am: "TT/TRAVEL" }, "2027-01-24": { am: "TRAVEL" }, "2027-01-25": { am: "TT", pm: "GYM" }, "2027-01-26": { am: "TT", pm: "BIKE" }, "2027-01-27": { am: "TT", pm: "GYM" }, "2027-01-28": { am: "OFF" }, "2027-01-29": { am: "TT" }, "2027-01-31": { am: "REC/TT" }, "2027-02-01": { am: "TT", pm: "GYM" }, "2027-02-02": { am: "TT", pm: "BIKE" }, "2027-02-03": { am: "TT", pm: "GYM" }, "2027-02-04": { am: "OFF" }, "2027-02-05": { am: "TT", pm: "TRAVEL" }, "2027-02-07": { am: "TRAVEL", pm: "REC/TT", note: "Rego 2 closes" }, "2027-02-08": { am: "TT", pm: "GYM" }, "2027-02-09": { am: "TT", pm: "BIKE" }, "2027-02-10": { am: "TT", pm: "GYM" }, "2027-02-11": { am: "OFF" }, "2027-02-12": { am: "TT/TRAVEL" }, "2027-02-14": { am: "TRAVEL" }, "2027-02-15": { am: "OFF" }, "2027-02-16": { am: "OFF" }, "2027-02-17": { am: "TT", pm: "GYM" }, "2027-02-18": { am: "TT", pm: "BIKE" }, "2027-02-19": { am: "OFF" }, "2027-02-20": { am: "TT" }, "2027-02-22": { am: "OFF" }, "2027-02-23": { am: "TT", pm: "GYM" }, "2027-02-24": { am: "TT", pm: "BIKE" }, "2027-02-25": { am: "TT", pm: "GYM" }, "2027-02-26": { am: "OFF" }, "2027-02-27": { am: "TT/TRAVEL" }, "2027-03-01": { am: "TRAVEL" }, "2027-03-02": { am: "TT", pm: "BIKE" }, "2027-03-03": { am: "TT", pm: "GYM" }, "2027-03-04": { am: "OFF" }, "2027-03-05": { am: "TT" }, "2027-03-07": { am: "REC/TT" }, "2027-03-08": { am: "TT", pm: "GYM" }, "2027-03-09": { am: "TT", pm: "BIKE" }, "2027-03-10": { am: "TT", pm: "GYM" }, "2027-03-11": { am: "OFF" }, "2027-03-12": { am: "TT/TRAVEL" }, "2027-03-14": { am: "TRAVEL" }, "2027-03-15": { am: "TT", pm: "GYM" }, "2027-03-16": { am: "TT", pm: "BIKE" }, "2027-03-17": { am: "TT", pm: "GYM" }, "2027-03-18": { am: "OFF" }, "2027-03-19": { am: "TT" }, "2027-03-21": { am: "OFF" }, "2027-03-22": { am: "TT", pm: "GYM" }, "2027-03-23": { am: "TT", pm: "BIKE" }, "2027-03-24": { am: "OFF" }, "2027-03-25": { am: "TT" }, "2027-03-26": { note: "FIFA international window" }, "2027-03-27": { am: "OFF" }, "2027-03-28": { am: "TT", pm: "GYM" }, "2027-03-29": { am: "TT", pm: "BIKE" }, "2027-03-30": { am: "TT", pm: "GYM" }, "2027-03-31": { am: "TRAVEL" }, "2027-04-01": { am: "TT" }, "2027-04-03": { am: "TRAVEL" }, "2027-04-04": { am: "OFF" }, "2027-04-05": { am: "TT", pm: "BIKE" }, "2027-04-06": { am: "TT", pm: "GYM" }, "2027-04-07": { am: "OFF" }, "2027-04-08": { am: "TT" }, "2027-04-10": { am: "REC/TT" }, "2027-04-11": { am: "OFF" }, "2027-04-12": { am: "TT", pm: "GYM" }, "2027-04-13": { am: "TT", pm: "BIKE" }, "2027-04-14": { am: "TT", pm: "GYM" }, "2027-04-15": { am: "OFF" }, "2027-04-16": { am: "TT" }, "2027-04-18": { am: "REC/TT" }, "2027-04-19": { am: "TT", pm: "GYM" }, "2027-04-20": { am: "TT", pm: "BIKE" }, "2027-04-21": { am: "TT", pm: "GYM" }, "2027-04-22": { am: "OFF" }, "2027-04-23": { am: "TT" }, "2027-04-25": { am: "REC/TT" }, "2027-04-26": { am: "TT", pm: "BIKE" }, "2027-04-27": { am: "TT", pm: "GYM" }, "2027-04-28": { am: "TRAVEL" }, "2027-04-29": { am: "TT" }, "2027-05-01": { am: "TRAVEL" }, "2027-05-02": { am: "OFF" }, "2027-05-03": { am: "TT", pm: "BIKE" }, "2027-05-04": { am: "TT", pm: "GYM" }, "2027-05-05": { am: "OFF" }, "2027-05-06": { am: "TT/TRAVEL" }, "2027-05-08": { am: "TRAVEL" }, "2027-06-11": { note: "FIFA international window" } };
+
+  // src/data.js
+  var OPPONENTS = {
+    ADL: "Adelaide United",
+    AFC: "Auckland FC",
+    BRI: "Brisbane Roar",
+    CCM: "Central Coast Mariners",
+    MAC: "Macarthur FC",
+    MBC: "Melbourne City",
+    MBV: "Melbourne Victory",
+    NEW: "Newcastle Jets",
+    PER: "Perth Glory",
+    SFC: "Sydney FC",
+    WSW: "Western Sydney Wanderers",
+    TBC: "Opponent TBC"
+  }, DEFAULT_FIXTURES = [
+    { id: "pre1", date: "2026-10-01", round: "Pre-season", opp: "NEW", loc: "A", time: "", note: "Pre-season friendly" },
+    { id: "pre2", date: "2026-10-10", round: "Pre-season", opp: "MAC", loc: "A", time: "", note: "Pre-season game in Australia" },
+    { id: "r1", date: "2026-10-18", round: "RD1", opp: "MBV", loc: "H", time: "3pm", note: "" },
+    { id: "r2", date: "2026-10-25", round: "RD2", opp: "CCM", loc: "H", time: "3pm", note: "" },
+    { id: "r3", date: "2026-10-31", round: "RD3", opp: "NEW", loc: "A", time: "3pm", note: "" },
+    { id: "r4", date: "2026-11-07", round: "RD4", opp: "AFC", loc: "A", time: "5pm", note: "" },
+    { id: "r5", date: "2026-11-22", round: "RD5", opp: "MAC", loc: "H", time: "3pm", note: "" },
+    { id: "r7", date: "2026-12-06", round: "RD7", opp: "ADL", loc: "H", time: "3pm", note: "" },
+    { id: "r8", date: "2026-12-13", round: "RD8", opp: "WSW", loc: "A", time: "5pm", note: "" },
+    { id: "r9", date: "2026-12-19", round: "RD9", opp: "AFC", loc: "H", time: "5pm", note: "" },
+    { id: "r10", date: "2026-12-29", round: "RD10", opp: "MBV", loc: "A", time: "7pm", note: "" },
+    { id: "r11", date: "2027-01-02", round: "RD11", opp: "NEW", loc: "H", time: "5pm", note: "" },
+    { id: "r12", date: "2027-01-10", round: "RD12", opp: "MBC", loc: "A", time: "5pm", note: "" },
+    { id: "r13", date: "2027-01-14", round: "RD13", opp: "MAC", loc: "A", time: "7:40pm", note: "" },
+    { id: "r14", date: "2027-01-23", round: "RD14", opp: "BRI", loc: "A", time: "4pm", note: "" },
+    { id: "r15", date: "2027-01-30", round: "RD15", opp: "PER", loc: "H", time: "5pm", note: "" },
+    { id: "r16", date: "2027-02-06", round: "RD16", opp: "WSW", loc: "H", time: "5pm", note: "Played in Christchurch", occasion: "away" },
+    { id: "r17", date: "2027-02-13", round: "RD17", opp: "AFC", loc: "A", time: "5pm", note: "" },
+    { id: "tbc1", date: "2027-02-21", round: "Game TBC", opp: "TBC", loc: "TBC", time: "", note: "Game TBC on the season schedule" },
+    { id: "r19", date: "2027-02-28", round: "RD19", opp: "MBC", loc: "A", time: "4pm", note: "" },
+    { id: "r20", date: "2027-03-06", round: "RD20", opp: "SFC", loc: "H", time: "3pm", note: "" },
+    { id: "r21", date: "2027-03-13", round: "RD21", opp: "CCM", loc: "A", time: "5pm", note: "" },
+    { id: "r22", date: "2027-03-20", round: "RD22", opp: "MAC", loc: "H", time: "5pm", note: "" },
+    { id: "tbc2", date: "2027-03-26", round: "Game TBC", opp: "TBC", loc: "TBC", time: "", note: "Game TBC in the FIFA international window" },
+    { id: "r23", date: "2027-04-02", round: "RD23", opp: "ADL", loc: "A", time: "7:10pm", note: "" },
+    { id: "r24", date: "2027-04-09", round: "RD24", opp: "BRI", loc: "H", time: "7pm", note: "" },
+    { id: "r25", date: "2027-04-17", round: "RD25", opp: "NEW", loc: "H", time: "5pm", note: "" },
+    { id: "r26", date: "2027-04-24", round: "RD26", opp: "MBC", loc: "H", time: "5pm", note: "" },
+    { id: "r27", date: "2027-04-30", round: "RD27", opp: "PER", loc: "A", time: "7:45pm", note: "" },
+    { id: "r28", date: "2027-05-07", round: "RD28", opp: "SFC", loc: "A", time: "7:40pm", note: "" },
+    { id: "ef", date: "2027-05-15", round: "Elimination final", opp: "TBC", loc: "TBC", time: "", note: "Saturday 15 or Sunday 16 May" },
+    { id: "sf1", date: "2027-05-22", round: "Semi final 1", opp: "TBC", loc: "TBC", time: "", note: "Saturday 22 or Sunday 23 May" },
+    { id: "sf2", date: "2027-05-29", round: "Semi final 2", opp: "TBC", loc: "TBC", time: "", note: "Saturday 29 or Sunday 30 May" },
+    { id: "gf", date: "2027-06-05", round: "Grand final", opp: "TBC", loc: "TBC", time: "", note: "Saturday 5 or Sunday 6 June" }
+  ], OCCASIONS = [
+    { id: "home", label: "Home game", hint: "Game at the stadium. Training at the training ground." },
+    { id: "homeStadium", label: "Home game, stadium training", hint: "MD-1 training is at the stadium." },
+    { id: "away", label: "Away game", hint: "Fly in, play and fly home." },
+    { id: "awayStay", label: "Away trip, training there", hint: "We stay and train in that city." }
+  ], KITS = [
+    { id: "home", label: "Home" },
+    { id: "away", label: "Away" },
+    { id: "third", label: "Third" }
+  ], ALL = ["home", "homeStadium", "away", "awayStay"], AWAY = ["away", "awayStay"], items = (prefix, list2) => list2.map((name, i) => ({ id: `${prefix}-${i + 1}`, name })), DEFAULT_BAGS = [
+    { id: "mk1", name: "Match Kit 1", carrier: "Players", difficulty: 6, trips: ALL, items: items("mk1", ["Speaker and charger", "{kit} match shirts (all sizes)", "{kit} match shorts (all sizes)"]) },
+    { id: "mk2", name: "Match Kit 2 (Warm Up)", carrier: "Players", difficulty: 5, trips: ALL, items: items("mk2", ["Warm up tops", "Warm up shirts", "GPS vests", "GK warm up top"]) },
+    { id: "mk3", name: "Match Kit 3 (Socks and Skins)", carrier: "Players", difficulty: 2, trips: ALL, items: items("mk3", ["Sets of yellow socks", "Sets of pink socks", "Sets of yellow bottom skins", "Sets of yellow top skins", "Sets of pink top skins", "Sets of pink bottom skins", "Set of blue bibs", "Kit man box", "Captain's armband"]) },
+    { id: "mk4", name: "Match Kit 4 (Sub Jackets)", carrier: "Players", difficulty: 1, trips: ALL, items: items("mk4", ["8 puffa jackets", "Blood kit (49, 50 and 60 GK)", "Track suit pants"]) },
+    { id: "balls1", name: "Bag of Balls 1", carrier: "Players", difficulty: 12, trips: ALL, items: items("balls1", ["Match balls", "Ball pump", "Ball needles"]) },
+    { id: "balls2", name: "Bag of Balls 2", carrier: "Players", difficulty: 12, trips: ALL, items: items("balls2", ["Training balls", "Spare ball pump", "Ball repair kit"]) },
+    { id: "teb", name: "Training Equipment Bag", carrier: "Sebastian Bayliss (Equipment)", difficulty: 0, trips: ["homeStadium", "awayStay"], items: items("teb", ["All flat markers", "Ball pump (battery in Canyon)", "40 flat markers", "20 dome cones", "Set of orange bibs", "Set of purple bibs", "Set of blue bibs", "Sebba's boots"]) },
+    { id: "poles", name: "Poles (Red Bag)", carrier: "Players", difficulty: 3, trips: ["homeStadium", "away", "awayStay"], items: items("poles", ["Training poles", "Pole bases", "Pole connectors", "Spare poles"]) },
+    { id: "drum", name: "Blue Drum", carrier: "Players", difficulty: 4, trips: AWAY, items: [] },
+    { id: "sc1", name: "S&C 1", carrier: "Players", difficulty: 7, trips: AWAY, items: [] },
+    { id: "gat", name: "Gatorade Chilly Bin", carrier: "Players", difficulty: 8, trips: ALL, items: [] },
+    { id: "grey", name: "Grey Chilly Bin", carrier: "Players", difficulty: 9, trips: AWAY, items: [] },
+    { id: "esky2", name: "Blue Esky 2", carrier: "Players", difficulty: 10, trips: AWAY, items: [] },
+    { id: "esky1", name: "Blue Esky 1", carrier: "Players", difficulty: 11, trips: AWAY, items: [] },
+    { id: "lusl", name: "Long USL Bag", carrier: "Players", difficulty: 13, trips: AWAY, items: [] },
+    { id: "scbox", name: "Black S&C Box", carrier: "Players", difficulty: 14, trips: AWAY, items: [] },
+    { id: "bed", name: "Physio Bed", carrier: "Players", difficulty: 15, trips: AWAY, items: [] },
+    { id: "sc3", name: "S&C 3", carrier: "Weijie Lim (Strength and Conditioning)", difficulty: 0, trips: AWAY, items: [] },
+    { id: "sc2", name: "S&C 2", carrier: "Dylan Cope (Goalkeeper Coach)", difficulty: 0, trips: AWAY, items: [] },
+    { id: "usl", name: "USL", carrier: "Grayson Harwood (Physio)", difficulty: 0, trips: AWAY, items: [] },
+    { id: "abox", name: "Analysis Box", carrier: "Analyst", difficulty: 0, trips: AWAY, items: [] }
+  ], STAFF = [
+    "Sebastian Bayliss (Equipment)",
+    "Weijie Lim (Strength and Conditioning)",
+    "Grayson Harwood (Physio)",
+    "Dylan Cope (Goalkeeper Coach)",
+    "Analyst"
+  ], list = (prefix, texts) => texts.map((text, i) => ({ id: `${prefix}${i + 1}`, text })), DEFAULT_SETTINGS = {
+    checklists: {
+      training: list("tr", ["Training kit set out", "Towels topped up", "Balls pumped"]),
+      firstBack: list("fb", ["Match kit from the game washed", "Match kit folded", "Match kit set up for the next game"]),
+      travel: list("tv", ["Bags packed and ticked off in Bag packs", "Travel print off done", "Carry-on items handed out"]),
+      gameday: list("gd", ["All bags taken to the changing room", "Match shirts hung up", "Second shirts out for the starting 11", "Packs unpacked", "Signs put up", "Banners put up", "Set pieces put up", "Towels in the right place"])
+    },
+    carryOns: ["Game Ready", "Normatec", "Defib", "GPS Units"]
+  }, PLAYERS = [
+    { id: "alex-rufer", number: 14, name: "Alex Rufer", position: "MF", group: "First team", matchShirt: "M", matchShorts: "L", warmUpShirt: "M", warmUpZip: "M", trainingShorts: "L", seniority: 1 },
+    { id: "kazuki-nagasawa", number: 25, name: "Kazuki Nagasawa", position: "MF", group: "First team", matchShirt: "M", matchShorts: "M", warmUpShirt: "M", warmUpZip: "M", trainingShorts: "M", seniority: 2 },
+    { id: "corban-piper", number: 99, name: "Corban Piper", position: "DF", group: "First team", matchShirt: "L", matchShorts: "XL", warmUpShirt: "M", warmUpZip: "L", trainingShorts: "L", seniority: 3 },
+    { id: "fin-roa-conchie", number: 6, name: "Fin Roa Conchie", position: "MF", group: "First team", matchShirt: "M", matchShorts: "L", warmUpShirt: "M", warmUpZip: "M", trainingShorts: "L", seniority: 4 },
+    { id: "isaac-hughes", number: 15, name: "Isaac Hughes", position: "DF", group: "First team", matchShirt: "M", matchShorts: "L", warmUpShirt: "M", warmUpZip: "L", trainingShorts: "L", seniority: 5 },
+    { id: "matthew-sheridan", number: 27, name: "Matthew Sheridan", position: "DF", group: "First team", matchShirt: "M", matchShorts: "L", warmUpShirt: "M", warmUpZip: "M", trainingShorts: "L", seniority: 6 },
+    { id: "lukas-kelly-heald", number: 18, name: "Lukas Kelly-Heald", position: "DF", group: "First team", matchShirt: "M", matchShorts: "XL", warmUpShirt: "M", warmUpZip: "L", trainingShorts: "XL", seniority: 7 },
+    { id: "alby-kelly-heald", number: 30, name: "Alby Kelly-Heald", position: "GK", group: "First team", matchShirt: "M (GK)", matchShorts: "XL (GK)", warmUpShirt: "M", warmUpZip: "L", trainingShorts: "L (GK)", seniority: 8 },
+    { id: "xuan-loke", number: 24, name: "Xuan Loke", position: "DF", group: "First team", matchShirt: "S", matchShorts: "XL", warmUpShirt: "S", warmUpZip: "M", trainingShorts: "L", seniority: 9 },
+    { id: "nathan-walker", number: 17, name: "Nathan Walker", position: "FW", group: "First team", matchShirt: "S", matchShorts: "L", warmUpShirt: "S", warmUpZip: "S", trainingShorts: "L", seniority: 10 },
+    { id: "jayden-smith", number: 39, name: "Jayden Smith", position: "DF", group: "First team", matchShirt: "L", matchShorts: "XL (L)", warmUpShirt: "L", warmUpZip: "L", trainingShorts: "XL (L)", seniority: 11 },
+    { id: "anaru-cassidy", number: 37, name: "Anaru Cassidy", position: "", group: "First team", matchShirt: "M", matchShorts: "L", warmUpShirt: "M", warmUpZip: "M", trainingShorts: "M", seniority: 12 },
+    { id: "eamonn-mccarron", number: 40, name: "Eamonn McCarron", position: "GK", group: "First team", matchShirt: "L (GK)", matchShorts: "XL (GK)", warmUpShirt: "L", warmUpZip: "L", trainingShorts: "L", seniority: 13 },
+    { id: "walter-scott", number: 5, name: "Walter Scott", position: "", group: "First team", matchShirt: "M", matchShorts: "L", warmUpShirt: "M", warmUpZip: "M", trainingShorts: "L", seniority: 14 },
+    { id: "bryce-duke", number: 7, name: "Bryce Duke", position: "", group: "First team", matchShirt: "M", matchShorts: "L", warmUpShirt: "M", warmUpZip: "M", trainingShorts: "L", seniority: 15 },
+    { id: "max-anderson", number: 8, name: "Max Anderson", position: "", group: "First team", matchShirt: "M", matchShorts: "L", warmUpShirt: "M", warmUpZip: "M", trainingShorts: "L", seniority: 16 },
+    { id: "rafael-duran", number: 9, name: "Rafael Dur\xE1n", position: "", group: "First team", matchShirt: "M", matchShorts: "L", warmUpShirt: "M", warmUpZip: "M", trainingShorts: "L", seniority: 17 },
+    { id: "riley-bidois", number: 11, name: "Riley Bidois", position: "", group: "First team", matchShirt: "M", matchShorts: "L", warmUpShirt: "M", warmUpZip: "M", trainingShorts: "L", seniority: 18 },
+    { id: "henry-gray", number: 13, name: "Henry Gray", position: "GK", group: "First team", matchShirt: "M (GK)", matchShorts: "XL (GK)", warmUpShirt: "L", warmUpZip: "L", trainingShorts: "XL", seniority: 19 },
+    { id: "james-mcgarry", number: 23, name: "James McGarry", position: "", group: "First team", matchShirt: "M", matchShorts: "M", warmUpShirt: "L", warmUpZip: "M", trainingShorts: "L", seniority: 20 },
+    { id: "bill-tuiloma", number: 28, name: "Bill Tuiloma", position: "", group: "First team", matchShirt: "M", matchShorts: "XL", warmUpShirt: "L", warmUpZip: "L", trainingShorts: "L", seniority: 21 },
+    { id: "ben-trenberth", number: 32, name: "Ben Trenberth", position: "", group: "First team", matchShirt: "S", matchShorts: "M", warmUpShirt: "S", warmUpZip: "S", trainingShorts: "S", seniority: 22 },
+    { id: "dylan-gardiner", number: 34, name: "Dylan Gardiner", position: "", group: "Academy", matchShirt: "L", matchShorts: "L", warmUpShirt: "L", warmUpZip: "L", trainingShorts: "L", seniority: 23 },
+    { id: "ryan-lee", number: 31, name: "Ryan Lee", position: "", group: "Academy", matchShirt: "S", matchShorts: "M", warmUpShirt: "S", warmUpZip: "S", trainingShorts: "S", seniority: 24 },
+    { id: "luke-mitchell", number: 35, name: "Luke Mitchell", position: "", group: "Academy", matchShirt: "M", matchShorts: "M", warmUpShirt: "M", warmUpZip: "M", trainingShorts: "M", seniority: 25 },
+    { id: "mac-munro", number: 41, name: "Mac Munro", position: "", group: "Academy", matchShirt: "L", matchShorts: "L", warmUpShirt: "", warmUpZip: "L", trainingShorts: "L", seniority: 26 },
+    { id: "daniel-nelson", number: 33, name: "Daniel Nelson", position: "", group: "Academy", matchShirt: "S", matchShorts: "M", warmUpShirt: "", warmUpZip: "S", trainingShorts: "S", seniority: 27 },
+    { id: "fletcher-pratt", number: 36, name: "Fletcher Pratt", position: "", group: "Academy", matchShirt: "S", matchShorts: "M", warmUpShirt: "", warmUpZip: "S", trainingShorts: "S", seniority: 28 },
+    { id: "joseph-mcintyre", number: 38, name: "Joseph McIntyre", position: "", group: "Academy", matchShirt: "M", matchShorts: "M", warmUpShirt: "L", warmUpZip: "L", trainingShorts: "L", seniority: 29 },
+    { id: "willem-des-tombe", number: 39, name: "Willem Des Tombe", position: "", group: "Academy", matchShirt: "S", matchShorts: "M", warmUpShirt: "S", warmUpZip: "S", trainingShorts: "S", seniority: 30 },
+    { id: "joseph-chalabi", number: 50, name: "Joseph Chalabi", position: "GK", group: "Academy", matchShirt: "L (GK)", matchShorts: "L (GK)", warmUpShirt: "", warmUpZip: "L", trainingShorts: "L", seniority: 31 },
+    { id: "kyle-koch", number: 42, name: "Kyle Koch", position: "", group: "Academy", matchShirt: "M", matchShorts: "M", warmUpShirt: "", warmUpZip: "M", trainingShorts: "M", seniority: 32 },
+    { id: "zach-cashmore", number: 43, name: "Zach Cashmore", position: "", group: "Academy", matchShirt: "", matchShorts: "", warmUpShirt: "", warmUpZip: "", trainingShorts: "", seniority: 33 }
+  ], UNIFORM_LABELS = {
+    matchShirt: "Match shirts",
+    matchShorts: "Match shorts",
+    warmUpShirt: "Warm up shirts",
+    warmUpZip: "Warm up 1/4 zips",
+    trainingShorts: "Training shorts"
+  }, SESSION_CODES = [
+    ["TT", "Team training"],
+    ["GYM", "Gym session"],
+    ["BIKE", "Bike session"],
+    ["REC/TT", "Recovery, or training for those who did not play"],
+    ["OFF", "Day off"],
+    ["TRAVEL", "Travel day"],
+    ["TT/TRAVEL", "Train, then travel"]
+  ];
+
+  // src/logic.js
+  var dayNum = (iso) => {
+    let [y, m, d] = iso.split("-").map(Number);
+    return Math.round(Date.UTC(y, m - 1, d) / 864e5);
+  }, fromNum = (n) => new Date(n * 864e5).toISOString().slice(0, 10), addDays = (iso, n) => fromNum(dayNum(iso) + n), todayISO = (now = /* @__PURE__ */ new Date()) => {
+    let p = (x) => String(x).padStart(2, "0");
+    return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
+  }, weekday = (iso) => (new Date(dayNum(iso) * 864e5).getUTCDay() + 6) % 7, mondayOf = (iso) => addDays(iso, -weekday(iso)), fmt = (iso, opts) => new Date(dayNum(iso) * 864e5).toLocaleDateString("en-NZ", { timeZone: "UTC", ...opts }), fmtShort = (iso) => fmt(iso, { weekday: "short", day: "numeric", month: "short" }), fmtLong = (iso) => fmt(iso, { weekday: "long", day: "numeric", month: "long" }), sortFixtures = (fixtures) => [...fixtures].sort((a, b) => a.date.localeCompare(b.date)), oppName = (f) => OPPONENTS[f.opp] || f.opp || "Opponent TBC", locLabel = (loc) => loc === "H" ? "Home" : loc === "A" ? "Away" : "Venue TBC", fixtureTitle = (f) => `${f.round} v ${oppName(f)}`, defaultOccasion = (f) => f.occasion || (f.loc === "A" ? "away" : "home"), defaultKit = (f) => f.kit || (f.loc === "A" ? "away" : "home");
+  function mdInfo(date, sorted) {
+    let n = dayNum(date), next = null, prev = null;
+    for (let f of sorted) {
+      if (f.date >= date) {
+        next = f;
+        break;
+      }
+      prev = f;
+    }
+    let daysTo = next ? dayNum(next.date) - n : null, daysSince = prev ? n - dayNum(prev.date) : null, label = "";
+    return daysTo === 0 ? label = "MD" : daysSince !== null && daysSince <= 2 && (daysTo === null || daysTo > 3) ? label = `MD+${daysSince}` : daysTo !== null ? label = `MD-${daysTo}` : daysSince !== null && (label = `MD+${daysSince}`), { label, next, prev, daysTo, daysSince, fixture: daysTo === 0 ? next : null };
+  }
+  function patternSession(md) {
+    return md.daysTo === 0 ? { am: "GAME", pm: "" } : md.daysTo === 1 ? { am: md.next.loc === "A" ? "TT/TRAVEL" : "TT", pm: "" } : md.daysTo === 2 ? { am: "OFF", pm: "" } : md.daysTo >= 3 && md.daysTo <= 5 ? { am: "TT", pm: "" } : md.daysSince === 1 ? { am: md.prev.loc === "A" ? "TRAVEL" : "REC/TT", pm: "" } : null;
+  }
+  function sessionFor(date, sorted, days) {
+    let md = mdInfo(date, sorted), edited = days[date] && days[date].session, plan = SEASON_PLAN[date], note = days[date] && days[date].note || "", planNote = plan && plan.note || "";
+    if (md.fixture) return { am: "GAME", pm: "", source: "fixture", md, planNote, note };
+    if (edited) return { ...edited, source: "edited", md, planNote, note };
+    if (plan && (plan.am || plan.pm)) return { am: plan.am || "", pm: plan.pm || "", source: "plan", md, planNote, note };
+    let p = patternSession(md);
+    return p ? { ...p, source: "pattern", md, planNote, note } : { am: "", pm: "", source: "none", md, planNote, note };
+  }
+  var has = (s, re) => re.test(`${s.am || ""} ${s.pm || ""}`), isTraining = (s) => has(s, /\bTT\b|REC/), isTravel = (s) => has(s, /TRAVEL/);
+  function checklistsFor(date, sorted, days) {
+    let s = sessionFor(date, sorted, days), out = [];
+    if (s.md.fixture)
+      return out.push("gameday"), { session: s, lists: out };
+    if (isTraining(s) && s.md.prev && s.md.daysSince >= 1 && s.md.daysSince <= 6) {
+      let firstBack = !0;
+      for (let i = 1; i < s.md.daysSince; i += 1) {
+        let d = addDays(s.md.prev.date, i);
+        if (isTraining(sessionFor(d, sorted, days))) {
+          firstBack = !1;
+          break;
+        }
+      }
+      firstBack && out.push("firstBack");
+    }
+    return isTraining(s) && out.push("training"), isTravel(s) && s.md.next && s.md.daysTo !== null && s.md.daysTo <= 2 && out.push("travel"), { session: s, lists: out };
+  }
+  function uniformRequirements(squad) {
+    let req = {};
+    return Object.keys(UNIFORM_LABELS).forEach((k) => {
+      req[k] = {};
+    }), squad.forEach((p) => {
+      Object.keys(UNIFORM_LABELS).forEach((k) => {
+        p[k] && (req[k][p[k]] = (req[k][p[k]] || 0) + 1);
+      });
+    }), Object.keys(req).forEach((k) => Object.keys(req[k]).forEach((s) => {
+      req[k][s] += 2;
+    })), req;
+  }
+  function bagAllocation(squad, bags, carryOns) {
+    if (!squad.length) return { rows: [], spare: [] };
+    let players = [...squad].sort((a, b) => a.seniority - b.seniority), playerBags = bags.filter((b) => b.carrier === "Players").sort((a, b) => (a.difficulty || 0) - (b.difficulty || 0)), top = players.slice(0, 3), rest = players.slice(3), carriers = rest.slice(Math.max(0, rest.length - playerBags.length)), firstCarrier = rest.length - carriers.length, carryStart = Math.max(0, rest.length - 4), rows = top.map((p) => ({ player: p, bag: null, carryOn: null }));
+    return rest.forEach((p, i) => {
+      let bag = i >= firstCarrier ? playerBags[i - firstCarrier] : null, carryOn = i >= carryStart && carryOns[i - carryStart] || null;
+      rows.push({ player: p, bag, carryOn });
+    }), { rows, spare: playerBags.slice(carriers.length) };
+  }
+  var kitText = (text, kitLabel) => text.replace(/\{kit\}/g, kitLabel);
+
+  // src/app.jsx
+  var { useState, useEffect, useMemo, useRef, useCallback } = React, SLICES = ["fixtures", "days", "packs", "bags", "settings", "squad", "players"], LS_KEY = "phoenix-team-manager-v2", clone = (x) => JSON.parse(JSON.stringify(x)), uid = () => Math.random().toString(36).slice(2, 9), defaultData = () => ({
+    fixtures: clone(DEFAULT_FIXTURES),
+    days: {},
+    packs: {},
+    bags: clone(DEFAULT_BAGS),
+    settings: clone(DEFAULT_SETTINGS),
+    squad: { ids: [] },
+    players: clone(PLAYERS)
+  });
+  function readLocal() {
+    try {
+      let raw = window.localStorage.getItem(LS_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+  function writeLocal(data) {
+    try {
+      window.localStorage.setItem(LS_KEY, JSON.stringify(data));
+    } catch {
+    }
+  }
+  function useAppData() {
+    let [data, setData] = useState(() => {
+      let base = defaultData(), local = readLocal();
+      return local && SLICES.forEach((k) => {
+        local[k] && (base[k] = local[k]);
+      }), base;
+    }), [sync, setSync] = useState("local"), dbRef = useRef(null), stamps = useRef({}), timers = useRef({}), chains = useRef({}), latest = useRef(data);
+    latest.current = data, useEffect(() => {
+      let t = setTimeout(() => writeLocal(data), 300);
+      return () => clearTimeout(t);
+    }, [data]), useEffect(() => {
+      let cancelled = !1, unsubs = [];
+      return (async () => {
+        if (!window.claude || typeof window.claude.use != "function") return;
+        setSync("connecting");
+        let db = null;
+        try {
+          db = await window.claude.use("db");
+        } catch {
+          db = null;
+        }
+        if (cancelled) return;
+        if (!db) {
+          setSync("local");
+          return;
+        }
+        dbRef.current = db;
+        let wait = setTimeout(() => setSync((s) => s === "connecting" ? "slow" : s), 1e4);
+        SLICES.forEach((name) => {
+          try {
+            let un = db.doc(`team/${name}`).onSnapshot((snap) => {
+              if (snap.metadata.fromCache || (clearTimeout(wait), setSync("synced")), !snap.exists) return;
+              let body = snap.data() || {}, at = Number(body.at) || 0;
+              body.v !== void 0 && at > (stamps.current[name] || 0) && (stamps.current[name] = at, setData((d) => ({ ...d, [name]: body.v })));
+            }, () => {
+              clearTimeout(wait), setSync("offline");
+            });
+            unsubs.push(un);
+          } catch {
+            setSync("offline");
+          }
+        });
+      })(), () => {
+        cancelled = !0, unsubs.forEach((u) => {
+          try {
+            u();
+          } catch {
+          }
+        });
+      };
+    }, []);
+    let pushToDb = useCallback((name) => {
+      let db = dbRef.current;
+      db && (clearTimeout(timers.current[name]), timers.current[name] = setTimeout(() => {
+        let at = stamps.current[name], v = latest.current[name], prev = chains.current[name] || Promise.resolve();
+        chains.current[name] = prev.then(() => db.doc(`team/${name}`).set({ v, at })).then(() => setSync("synced")).catch((e) => {
+          e && e.code === "invalid_argument" ? setSync("readonly") : setSync("offline");
+        });
+      }, 700));
+    }, []), update = useCallback((name, fn) => {
+      stamps.current[name] = Date.now(), setData((d) => ({ ...d, [name]: typeof fn == "function" ? fn(d[name]) : fn })), pushToDb(name);
+    }, [pushToDb]), replaceAll = useCallback((next) => {
+      SLICES.forEach((name) => {
+        next[name] !== void 0 && (stamps.current[name] = Date.now());
+      }), setData((d) => {
+        let out = { ...d };
+        return SLICES.forEach((name) => {
+          next[name] !== void 0 && (out[name] = next[name]);
+        }), out;
+      }), SLICES.forEach((name) => pushToDb(name));
+    }, [pushToDb]);
+    return { data, update, replaceAll, sync };
+  }
+  function SessionChips({ am, pm, fixture }) {
+    if (fixture)
+      return /* @__PURE__ */ React.createElement("span", { className: "chips" }, /* @__PURE__ */ React.createElement("span", { className: `chip game ${fixture.loc === "A" ? "away" : fixture.loc === "H" ? "home" : "tbc"}` }, fixture.round, " v ", fixture.opp === "TBC" ? "TBC" : fixture.opp, " (", fixture.loc === "TBC" ? "TBC" : fixture.loc, ")", fixture.time ? ` ${fixture.time}` : ""));
+    let parts = [am, pm].filter(Boolean);
+    return parts.length ? /* @__PURE__ */ React.createElement("span", { className: "chips" }, parts.map((p, i) => /* @__PURE__ */ React.createElement("span", { key: i, className: "chip-pair" }, i === 1 && /* @__PURE__ */ React.createElement("span", { className: "ampm" }, "PM"), i === 0 && pm && /* @__PURE__ */ React.createElement("span", { className: "ampm" }, "AM"), p.split("/").map((code) => {
+      let c = code.trim().toUpperCase(), cls = c === "TT" ? "tt" : c === "GYM" ? "gym" : c === "BIKE" ? "bike" : c.startsWith("REC") ? "rec" : c === "OFF" ? "off" : c === "TRAVEL" ? "travel" : "other";
+      return /* @__PURE__ */ React.createElement("span", { key: c, className: `chip ${cls}` }, code.trim());
+    })))) : /* @__PURE__ */ React.createElement("span", { className: "chips" }, /* @__PURE__ */ React.createElement("span", { className: "chip none" }, "Not set"));
+  }
+  function MdTag({ label }) {
+    if (!label) return null;
+    let cls = label === "MD" ? "md md-game" : label.startsWith("MD+") ? "md md-after" : "md";
+    return /* @__PURE__ */ React.createElement("span", { className: cls }, label);
+  }
+  function Tick({ checked, onChange, children, id, sub }) {
+    return /* @__PURE__ */ React.createElement("label", { className: `tick ${checked ? "on" : ""}`, htmlFor: id }, /* @__PURE__ */ React.createElement("input", { id, type: "checkbox", checked: !!checked, onChange }), /* @__PURE__ */ React.createElement("span", { className: "box", "aria-hidden": "true" }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 16 16" }, /* @__PURE__ */ React.createElement("path", { d: "M3.5 8.5l3 3 6-7" }))), /* @__PURE__ */ React.createElement("span", { className: "tick-text" }, children, sub && /* @__PURE__ */ React.createElement("span", { className: "tick-sub" }, sub)));
+  }
+  function Progress({ done, total }) {
+    let pct = total ? Math.round(done / total * 100) : 0;
+    return /* @__PURE__ */ React.createElement("span", { className: `progress ${total && done === total ? "full" : ""}`, title: `${done} of ${total} done` }, /* @__PURE__ */ React.createElement("span", { className: "bar" }, /* @__PURE__ */ React.createElement("span", { style: { width: `${pct}%` } })), /* @__PURE__ */ React.createElement("span", { className: "num" }, done, "/", total));
+  }
+  function Segmented({ value, options, onChange, name }) {
+    return /* @__PURE__ */ React.createElement("div", { className: "seg", role: "radiogroup", "aria-label": name }, options.map((o) => /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        key: o.id,
+        type: "button",
+        role: "radio",
+        "aria-checked": value === o.id,
+        className: value === o.id ? "on" : "",
+        onClick: () => onChange(o.id)
+      },
+      o.label
+    )));
+  }
+  function ListEditor({ items: items2, onChange, placeholder, idPrefix }) {
+    let [draft, setDraft] = useState(""), add = () => {
+      let t = draft.trim();
+      t && (onChange([...items2, { id: uid(), text: t }]), setDraft(""));
+    }, move = (i, dir) => {
+      let j = i + dir;
+      if (j < 0 || j >= items2.length) return;
+      let next = [...items2];
+      [next[i], next[j]] = [next[j], next[i]], onChange(next);
+    };
+    return /* @__PURE__ */ React.createElement("div", { className: "list-editor" }, items2.map((it, i) => /* @__PURE__ */ React.createElement("div", { className: "le-row", key: it.id }, /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        id: `${idPrefix}-${it.id}`,
+        "aria-label": "Item text",
+        value: it.text,
+        onChange: (e) => onChange(items2.map((x) => x.id === it.id ? { ...x, text: e.target.value } : x))
+      }
+    ), /* @__PURE__ */ React.createElement("button", { type: "button", className: "icon-btn", "aria-label": "Move up", onClick: () => move(i, -1) }, "\u2191"), /* @__PURE__ */ React.createElement("button", { type: "button", className: "icon-btn", "aria-label": "Move down", onClick: () => move(i, 1) }, "\u2193"), /* @__PURE__ */ React.createElement("button", { type: "button", className: "icon-btn danger", "aria-label": "Remove item", onClick: () => onChange(items2.filter((x) => x.id !== it.id)) }, "\xD7"))), /* @__PURE__ */ React.createElement("form", { className: "le-add", onSubmit: (e) => {
+      e.preventDefault(), add();
+    } }, /* @__PURE__ */ React.createElement("input", { id: `${idPrefix}-new`, "aria-label": "New item", placeholder, value: draft, onChange: (e) => setDraft(e.target.value) }), /* @__PURE__ */ React.createElement("button", { type: "submit", className: "btn" }, "Add")));
+  }
+  function TripPicker({ fixtures, value, onChange, today }) {
+    let upcoming = fixtures.filter((f) => f.date >= addDays(today, -3)), past = fixtures.filter((f) => f.date < addDays(today, -3)).reverse();
+    return /* @__PURE__ */ React.createElement("label", { className: "field" }, /* @__PURE__ */ React.createElement("span", null, "Trip or game"), /* @__PURE__ */ React.createElement("select", { id: "trip-picker", value: value || "", onChange: (e) => onChange(e.target.value) }, /* @__PURE__ */ React.createElement("optgroup", { label: "Coming up" }, upcoming.map((f) => /* @__PURE__ */ React.createElement("option", { key: f.id, value: f.id }, fmtShort(f.date), " \xB7 ", fixtureTitle(f), " (", locLabel(f.loc), ")"))), /* @__PURE__ */ React.createElement("optgroup", { label: "Earlier" }, past.map((f) => /* @__PURE__ */ React.createElement("option", { key: f.id, value: f.id }, fmtShort(f.date), " \xB7 ", fixtureTitle(f), " (", locLabel(f.loc), ")")))));
+  }
+  var LIST_NAMES = {
+    firstBack: "First day back",
+    training: "Training day",
+    travel: "Travel day",
+    gameday: "Game day setup"
+  };
+  function DayChecklists({ date, lists, settings, days, packs, update, fixture, kitLabel, goTo }) {
+    if (!lists.length) return /* @__PURE__ */ React.createElement("p", { className: "muted small" }, "No checklist today.");
+    let checks = days[date] && days[date].checks || {}, toggle = (id) => update("days", (d) => {
+      let day = d[date] || {}, c = { ...day.checks || {} };
+      return c[id] = !c[id], { ...d, [date]: { ...day, checks: c } };
+    });
+    return /* @__PURE__ */ React.createElement("div", { className: "checklists" }, lists.map((name) => {
+      if (name === "gameday") {
+        let items3 = settings.checklists.gameday, t = fixture && packs[fixture.id] && packs[fixture.id].gameday || {}, done2 = items3.filter((i) => t[i.id]).length;
+        return /* @__PURE__ */ React.createElement("div", { key: name, className: "cl" }, /* @__PURE__ */ React.createElement("div", { className: "cl-head" }, /* @__PURE__ */ React.createElement("strong", null, LIST_NAMES[name]), /* @__PURE__ */ React.createElement(Progress, { done: done2, total: items3.length })), /* @__PURE__ */ React.createElement("p", { className: "small muted" }, kitLabel ? `${kitLabel} kit. ` : "", "Tick these off on the Game day tab."), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn", onClick: () => goTo("gameday") }, "Open game day setup"));
+      }
+      let items2 = settings.checklists[name] || [], done = items2.filter((i) => checks[`${name}:${i.id}`]).length;
+      return /* @__PURE__ */ React.createElement("div", { key: name, className: "cl" }, /* @__PURE__ */ React.createElement("div", { className: "cl-head" }, /* @__PURE__ */ React.createElement("strong", null, LIST_NAMES[name]), /* @__PURE__ */ React.createElement(Progress, { done, total: items2.length })), name === "firstBack" && kitLabel && /* @__PURE__ */ React.createElement("p", { className: "small muted" }, "Last game: ", kitLabel, " kit."), items2.map((i) => /* @__PURE__ */ React.createElement(Tick, { key: i.id, id: `ck-${date}-${name}-${i.id}`, checked: checks[`${name}:${i.id}`], onChange: () => toggle(`${name}:${i.id}`) }, i.text)), name === "travel" && /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn ghost", onClick: () => goTo("bags") }, "Open bag packs"));
+    }));
+  }
+  function Reminders({ date, days, update, compact }) {
+    let [text, setText] = useState(""), list2 = days[date] && days[date].reminders || [], setList = (fn) => update("days", (d) => {
+      let day = d[date] || {};
+      return { ...d, [date]: { ...day, reminders: fn(day.reminders || []) } };
+    });
+    return /* @__PURE__ */ React.createElement("div", { className: "reminders" }, list2.map((r) => /* @__PURE__ */ React.createElement("div", { className: "rem-row", key: r.id }, /* @__PURE__ */ React.createElement(Tick, { id: `rem-${r.id}`, checked: r.done, onChange: () => setList((l) => l.map((x) => x.id === r.id ? { ...x, done: !x.done } : x)) }, r.text), /* @__PURE__ */ React.createElement("button", { type: "button", className: "icon-btn danger", "aria-label": "Delete reminder", onClick: () => setList((l) => l.filter((x) => x.id !== r.id)) }, "\xD7"))), !compact && /* @__PURE__ */ React.createElement("form", { className: "le-add", onSubmit: (e) => {
+      e.preventDefault();
+      let t = text.trim();
+      t && (setList((l) => [...l, { id: uid(), text: t, done: !1 }]), setText(""));
+    } }, /* @__PURE__ */ React.createElement("input", { id: `rem-new-${date}`, "aria-label": "New reminder", placeholder: "Add a reminder for this day", value: text, onChange: (e) => setText(e.target.value) }), /* @__PURE__ */ React.createElement("button", { type: "submit", className: "btn" }, "Add")));
+  }
+  function ReminderForm({ today, update }) {
+    let [text, setText] = useState(""), [date, setDate] = useState(addDays(today, 7)), quick = [
+      ["Today", today],
+      ["Tomorrow", addDays(today, 1)],
+      ["Next week", addDays(today, 7)],
+      ["Next Monday", addDays(mondayOf(today), 7)]
+    ];
+    return /* @__PURE__ */ React.createElement("form", { className: "rem-form", onSubmit: (e) => {
+      e.preventDefault();
+      let t = text.trim();
+      !t || !date || (update("days", (d) => {
+        let day = d[date] || {};
+        return { ...d, [date]: { ...day, reminders: [...day.reminders || [], { id: uid(), text: t, done: !1 }] } };
+      }), setText(""));
+    } }, /* @__PURE__ */ React.createElement("input", { id: "rem-text", "aria-label": "Reminder", placeholder: "For example: new socks arrive, check sizes", value: text, onChange: (e) => setText(e.target.value) }), /* @__PURE__ */ React.createElement("div", { className: "rem-when" }, quick.map(([label, d]) => /* @__PURE__ */ React.createElement("button", { type: "button", key: label, className: `pill ${date === d ? "on" : ""}`, onClick: () => setDate(d) }, label)), /* @__PURE__ */ React.createElement("input", { id: "rem-date", type: "date", "aria-label": "Reminder date", value: date, onChange: (e) => setDate(e.target.value) })), /* @__PURE__ */ React.createElement("button", { type: "submit", className: "btn primary" }, "Save reminder for ", fmtShort(date)));
+  }
+  function TodayTab({ ctx }) {
+    let { today, sorted, data, update, goTo, setTripId } = ctx, { days, settings, packs } = data, { session, lists } = checklistsFor(today, sorted, days), md = session.md, next = md.fixture || md.next, prevKit = md.prev ? KITS.find((k) => k.id === defaultKit(md.prev)) : null, nextKit = next ? KITS.find((k) => k.id === defaultKit(next)) : null, nextOcc = next ? OCCASIONS.find((o) => o.id === defaultOccasion(next)) : null, reminders = [];
+    Object.keys(days).sort().forEach((d) => {
+      (days[d].reminders || []).forEach((r) => {
+        d < today && !r.done ? reminders.push({ ...r, date: d, when: "Overdue" }) : d === today ? reminders.push({ ...r, date: d, when: "Today" }) : d > today && d <= addDays(today, 7) && reminders.push({ ...r, date: d, when: fmtShort(d) });
+      });
+    });
+    let toggleRem = (r) => update("days", (d) => {
+      let day = d[r.date] || {};
+      return { ...d, [r.date]: { ...day, reminders: (day.reminders || []).map((x) => x.id === r.id ? { ...x, done: !x.done } : x) } };
+    }), ahead = [1, 2, 3, 4, 5].map((i) => addDays(today, i));
+    return /* @__PURE__ */ React.createElement("div", { className: "stack" }, /* @__PURE__ */ React.createElement("section", { className: "card today-hero" }, /* @__PURE__ */ React.createElement("div", { className: "th-top" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("p", { className: "eyebrow" }, "Today"), /* @__PURE__ */ React.createElement("h2", { className: "display" }, fmtLong(today))), /* @__PURE__ */ React.createElement(MdTag, { label: md.label })), /* @__PURE__ */ React.createElement(SessionChips, { am: session.am, pm: session.pm, fixture: md.fixture }), (session.planNote || session.note) && /* @__PURE__ */ React.createElement("p", { className: "note" }, [session.planNote, session.note].filter(Boolean).join(" \xB7 "))), next && /* @__PURE__ */ React.createElement("section", { className: `card next-game ${next.loc === "A" ? "is-away" : next.loc === "H" ? "is-home" : ""}` }, /* @__PURE__ */ React.createElement("div", { className: "ng-row" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("p", { className: "eyebrow" }, md.fixture ? "Game today" : "Next game"), /* @__PURE__ */ React.createElement("h3", { className: "display" }, fixtureTitle(next)), /* @__PURE__ */ React.createElement("p", { className: "muted" }, locLabel(next.loc), " \xB7 ", fmtLong(next.date), next.time ? ` \xB7 ${next.time}` : "", next.note ? ` \xB7 ${next.note}` : "")), /* @__PURE__ */ React.createElement("div", { className: "countdown" }, /* @__PURE__ */ React.createElement("span", { className: "cd-num" }, md.daysTo), /* @__PURE__ */ React.createElement("span", { className: "cd-lbl" }, md.daysTo === 1 ? "day" : "days"))), /* @__PURE__ */ React.createElement("div", { className: "pills" }, nextKit && /* @__PURE__ */ React.createElement("span", { className: "pill static" }, nextKit.label, " kit"), nextOcc && /* @__PURE__ */ React.createElement("span", { className: "pill static" }, nextOcc.label)), /* @__PURE__ */ React.createElement("div", { className: "btn-row" }, /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn primary", onClick: () => {
+      setTripId(next.id), goTo("bags");
+    } }, "Bag packs for this game"), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn", onClick: () => {
+      setTripId(next.id), goTo("gameday");
+    } }, "Game day setup"))), /* @__PURE__ */ React.createElement("section", { className: "card" }, /* @__PURE__ */ React.createElement("h3", { className: "section-title" }, "Today's jobs"), /* @__PURE__ */ React.createElement(
+      DayChecklists,
+      {
+        date: today,
+        lists,
+        settings,
+        days,
+        packs,
+        update,
+        fixture: md.fixture,
+        kitLabel: lists.includes("firstBack") ? prevKit && prevKit.label : nextKit && nextKit.label,
+        goTo
+      }
+    )), /* @__PURE__ */ React.createElement("section", { className: "card" }, /* @__PURE__ */ React.createElement("h3", { className: "section-title" }, "Reminders"), reminders.length === 0 && /* @__PURE__ */ React.createElement("p", { className: "muted small" }, "Nothing due in the next 7 days."), reminders.map((r) => /* @__PURE__ */ React.createElement("div", { key: r.id, className: `rem-row ${r.when === "Overdue" ? "overdue" : ""}` }, /* @__PURE__ */ React.createElement(Tick, { id: `trem-${r.id}`, checked: r.done, onChange: () => toggleRem(r), sub: r.when === "Overdue" ? `Overdue from ${fmtShort(r.date)}` : r.when }, r.text))), /* @__PURE__ */ React.createElement(ReminderForm, { today, update })), /* @__PURE__ */ React.createElement("section", { className: "card" }, /* @__PURE__ */ React.createElement("h3", { className: "section-title" }, "Next 5 days"), /* @__PURE__ */ React.createElement("div", { className: "ahead" }, ahead.map((d) => {
+      let s = sessionFor(d, sorted, days), remCount = (days[d] && days[d].reminders || []).filter((r) => !r.done).length;
+      return /* @__PURE__ */ React.createElement("button", { type: "button", key: d, className: "ahead-day", onClick: () => {
+        ctx.setWeek(mondayOf(d)), ctx.setOpenDay(d), goTo("schedule");
+      } }, /* @__PURE__ */ React.createElement("span", { className: "ad-date" }, fmtShort(d)), /* @__PURE__ */ React.createElement(MdTag, { label: s.md.label }), /* @__PURE__ */ React.createElement(SessionChips, { am: s.am, pm: s.pm, fixture: s.md.fixture }), remCount > 0 && /* @__PURE__ */ React.createElement("span", { className: "badge" }, remCount, " reminder", remCount > 1 ? "s" : ""));
+    }))));
+  }
+  var SOURCE_LABEL = {
+    plan: "From the season schedule",
+    pattern: "From the game week pattern",
+    edited: "Edited by you",
+    fixture: "Game day",
+    none: "Nothing planned"
+  };
+  function DayRow({ date, ctx, open, onToggle }) {
+    let { today, sorted, data, update, goTo } = ctx, { days, settings, packs } = data, { session, lists } = checklistsFor(date, sorted, days), md = session.md, day = days[date] || {}, past = date < today, done = past || !!day.done, checks = day.checks || {}, tot = 0, dn = 0;
+    lists.forEach((n) => {
+      if (n === "gameday") {
+        let items2 = settings.checklists.gameday, t = md.fixture && packs[md.fixture.id] && packs[md.fixture.id].gameday || {};
+        tot += items2.length, dn += items2.filter((i) => t[i.id]).length;
+      } else {
+        let items2 = settings.checklists[n] || [];
+        tot += items2.length, dn += items2.filter((i) => checks[`${n}:${i.id}`]).length;
+      }
+    });
+    let openRems = (day.reminders || []).filter((r) => !r.done).length, kitFix = lists.includes("firstBack") ? md.prev : md.fixture || md.next, kit = kitFix ? KITS.find((k) => k.id === defaultKit(kitFix)) : null, setSession = (am, pm) => update("days", (d) => ({ ...d, [date]: { ...d[date] || {}, session: { am, pm } } })), resetSession = () => update("days", (d) => {
+      let x = { ...d[date] || {} };
+      return delete x.session, { ...d, [date]: x };
+    });
+    return /* @__PURE__ */ React.createElement("div", { className: `day ${date === today ? "is-today" : ""} ${done ? "is-done" : ""} ${md.fixture ? "is-game" : ""}` }, /* @__PURE__ */ React.createElement("button", { type: "button", className: "day-head", onClick: onToggle, "aria-expanded": open }, /* @__PURE__ */ React.createElement("span", { className: "day-date" }, /* @__PURE__ */ React.createElement("span", { className: "dd-wd" }, fmt(date, { weekday: "short" })), /* @__PURE__ */ React.createElement("span", { className: "dd-n" }, fmt(date, { day: "numeric" })), /* @__PURE__ */ React.createElement("span", { className: "dd-m" }, fmt(date, { month: "short" }))), /* @__PURE__ */ React.createElement("span", { className: "day-main" }, /* @__PURE__ */ React.createElement("span", { className: "day-line" }, /* @__PURE__ */ React.createElement(MdTag, { label: md.label }), date === today && /* @__PURE__ */ React.createElement("span", { className: "today-tag" }, "Today"), done && /* @__PURE__ */ React.createElement("span", { className: "done-tag" }, (past && !day.done, "Done"))), /* @__PURE__ */ React.createElement(SessionChips, { am: session.am, pm: session.pm, fixture: md.fixture }), md.fixture && /* @__PURE__ */ React.createElement("span", { className: "small muted" }, oppName(md.fixture), " \xB7 ", locLabel(md.fixture.loc), md.fixture.note ? ` \xB7 ${md.fixture.note}` : ""), (session.planNote || session.note) && /* @__PURE__ */ React.createElement("span", { className: "small note-inline" }, [session.planNote, session.note].filter(Boolean).join(" \xB7 "))), /* @__PURE__ */ React.createElement("span", { className: "day-side" }, tot > 0 && /* @__PURE__ */ React.createElement(Progress, { done: dn, total: tot }), openRems > 0 && /* @__PURE__ */ React.createElement("span", { className: "badge" }, openRems, " reminder", openRems > 1 ? "s" : ""), /* @__PURE__ */ React.createElement("span", { className: "chev", "aria-hidden": "true" }, open ? "\u25B4" : "\u25BE"))), open && /* @__PURE__ */ React.createElement("div", { className: "day-body" }, /* @__PURE__ */ React.createElement("div", { className: "grid-2" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h4", { className: "mini-title" }, "Jobs"), /* @__PURE__ */ React.createElement(
+      DayChecklists,
+      {
+        date,
+        lists,
+        settings,
+        days,
+        packs,
+        update,
+        fixture: md.fixture,
+        kitLabel: kit && kit.label,
+        goTo
+      }
+    )), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h4", { className: "mini-title" }, "Reminders"), /* @__PURE__ */ React.createElement(Reminders, { date, days, update }))), /* @__PURE__ */ React.createElement("div", { className: "day-edit" }, /* @__PURE__ */ React.createElement("h4", { className: "mini-title" }, "Session"), md.fixture ? /* @__PURE__ */ React.createElement("p", { className: "small muted" }, "Game day. Change the game in Fixtures below.") : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "session-edit" }, /* @__PURE__ */ React.createElement("label", { className: "field small-field" }, /* @__PURE__ */ React.createElement("span", null, "AM"), /* @__PURE__ */ React.createElement("input", { id: `am-${date}`, list: "session-codes", value: session.am, onChange: (e) => setSession(e.target.value.toUpperCase(), session.pm) })), /* @__PURE__ */ React.createElement("label", { className: "field small-field" }, /* @__PURE__ */ React.createElement("span", null, "PM"), /* @__PURE__ */ React.createElement("input", { id: `pm-${date}`, list: "session-codes", value: session.pm, onChange: (e) => setSession(session.am, e.target.value.toUpperCase()) }))), /* @__PURE__ */ React.createElement("p", { className: "small muted" }, SOURCE_LABEL[session.source], ".", session.source === "edited" && /* @__PURE__ */ React.createElement("button", { type: "button", className: "link-btn", onClick: resetSession }, "Undo my change"))), /* @__PURE__ */ React.createElement("label", { className: "field" }, /* @__PURE__ */ React.createElement("span", null, "Notes for this day"), /* @__PURE__ */ React.createElement(
+      "textarea",
+      {
+        id: `note-${date}`,
+        rows: "2",
+        value: day.note || "",
+        placeholder: "Anything to remember on the day",
+        onChange: (e) => update("days", (d) => ({ ...d, [date]: { ...d[date] || {}, note: e.target.value } }))
+      }
+    )), !past && /* @__PURE__ */ React.createElement("button", { type: "button", className: `btn ${day.done ? "ok" : ""}`, onClick: () => update("days", (d) => ({ ...d, [date]: { ...d[date] || {}, done: !day.done } })) }, day.done ? "Day marked done. Tap to undo" : "Mark day done"), past && /* @__PURE__ */ React.createElement("p", { className: "small muted" }, "Past days tick themselves off."))));
+  }
+  function FixtureEditor({ ctx }) {
+    let { data, update, today } = ctx, [showPast, setShowPast] = useState(!1), [draft, setDraft] = useState({ date: addDays(today, 7), round: "", opp: "TBC", loc: "H", time: "", note: "" }), shown = sortFixtures(data.fixtures).filter((f) => showPast || f.date >= addDays(today, -1)), edit = (id, patch) => update("fixtures", (list2) => list2.map((f) => f.id === id ? { ...f, ...patch } : f)), remove = (id) => update("fixtures", (list2) => list2.filter((f) => f.id !== id)), [confirmId, setConfirmId] = useState(null);
+    return /* @__PURE__ */ React.createElement("section", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "section-head" }, /* @__PURE__ */ React.createElement("h3", { className: "section-title" }, "Fixtures"), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn ghost", onClick: () => setShowPast(!showPast) }, showPast ? "Hide past games" : "Show past games")), /* @__PURE__ */ React.createElement("p", { className: "small muted" }, "The whole schedule works off these dates. Change a date, kit or trip type here and every day around it updates."), /* @__PURE__ */ React.createElement("div", { className: "fx-list" }, shown.map((f) => /* @__PURE__ */ React.createElement("details", { key: f.id, className: `fx ${f.date < today ? "past" : ""}` }, /* @__PURE__ */ React.createElement("summary", null, /* @__PURE__ */ React.createElement("span", { className: "fx-date" }, fmtShort(f.date)), /* @__PURE__ */ React.createElement("span", { className: `chip game ${f.loc === "A" ? "away" : f.loc === "H" ? "home" : "tbc"}` }, f.round), /* @__PURE__ */ React.createElement("span", { className: "fx-opp" }, oppName(f)), /* @__PURE__ */ React.createElement("span", { className: "muted small" }, locLabel(f.loc), f.time ? ` \xB7 ${f.time}` : "")), /* @__PURE__ */ React.createElement("div", { className: "fx-form" }, /* @__PURE__ */ React.createElement("label", { className: "field" }, /* @__PURE__ */ React.createElement("span", null, "Date"), /* @__PURE__ */ React.createElement("input", { id: `fx-date-${f.id}`, type: "date", value: f.date, onChange: (e) => e.target.value && edit(f.id, { date: e.target.value }) })), /* @__PURE__ */ React.createElement("label", { className: "field" }, /* @__PURE__ */ React.createElement("span", null, "Round"), /* @__PURE__ */ React.createElement("input", { id: `fx-round-${f.id}`, value: f.round, onChange: (e) => edit(f.id, { round: e.target.value }) })), /* @__PURE__ */ React.createElement("label", { className: "field" }, /* @__PURE__ */ React.createElement("span", null, "Opponent"), /* @__PURE__ */ React.createElement("select", { id: `fx-opp-${f.id}`, value: f.opp, onChange: (e) => edit(f.id, { opp: e.target.value }) }, Object.entries(OPPONENTS).map(([code, name]) => /* @__PURE__ */ React.createElement("option", { key: code, value: code }, name)))), /* @__PURE__ */ React.createElement("label", { className: "field" }, /* @__PURE__ */ React.createElement("span", null, "Home or away"), /* @__PURE__ */ React.createElement("select", { id: `fx-loc-${f.id}`, value: f.loc, onChange: (e) => edit(f.id, { loc: e.target.value }) }, /* @__PURE__ */ React.createElement("option", { value: "H" }, "Home"), /* @__PURE__ */ React.createElement("option", { value: "A" }, "Away"), /* @__PURE__ */ React.createElement("option", { value: "TBC" }, "TBC"))), /* @__PURE__ */ React.createElement("label", { className: "field" }, /* @__PURE__ */ React.createElement("span", null, "Kick off"), /* @__PURE__ */ React.createElement("input", { id: `fx-time-${f.id}`, value: f.time, placeholder: "5pm", onChange: (e) => edit(f.id, { time: e.target.value }) })), /* @__PURE__ */ React.createElement("label", { className: "field" }, /* @__PURE__ */ React.createElement("span", null, "Kit"), /* @__PURE__ */ React.createElement("select", { id: `fx-kit-${f.id}`, value: defaultKit(f), onChange: (e) => edit(f.id, { kit: e.target.value }) }, KITS.map((k) => /* @__PURE__ */ React.createElement("option", { key: k.id, value: k.id }, k.label)))), /* @__PURE__ */ React.createElement("label", { className: "field" }, /* @__PURE__ */ React.createElement("span", null, "Trip type"), /* @__PURE__ */ React.createElement("select", { id: `fx-occ-${f.id}`, value: defaultOccasion(f), onChange: (e) => edit(f.id, { occasion: e.target.value }) }, OCCASIONS.map((o) => /* @__PURE__ */ React.createElement("option", { key: o.id, value: o.id }, o.label)))), /* @__PURE__ */ React.createElement("label", { className: "field wide" }, /* @__PURE__ */ React.createElement("span", null, "Note"), /* @__PURE__ */ React.createElement("input", { id: `fx-note-${f.id}`, value: f.note || "", onChange: (e) => edit(f.id, { note: e.target.value }) })), /* @__PURE__ */ React.createElement("div", { className: "wide" }, confirmId === f.id ? /* @__PURE__ */ React.createElement("span", { className: "confirm" }, "Delete this game?", /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn danger", onClick: () => {
+      remove(f.id), setConfirmId(null);
+    } }, "Yes, delete"), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn ghost", onClick: () => setConfirmId(null) }, "Keep it")) : /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn ghost danger-text", onClick: () => setConfirmId(f.id) }, "Delete game")))))), /* @__PURE__ */ React.createElement("form", { className: "fx-add", onSubmit: (e) => {
+      e.preventDefault(), draft.date && (update("fixtures", (list2) => [...list2, { ...draft, id: uid(), round: draft.round || "Game" }]), setDraft({ ...draft, round: "", note: "", time: "" }));
+    } }, /* @__PURE__ */ React.createElement("h4", { className: "mini-title" }, "Add a game"), /* @__PURE__ */ React.createElement("div", { className: "fx-form" }, /* @__PURE__ */ React.createElement("label", { className: "field" }, /* @__PURE__ */ React.createElement("span", null, "Date"), /* @__PURE__ */ React.createElement("input", { id: "fxn-date", type: "date", value: draft.date, onChange: (e) => setDraft({ ...draft, date: e.target.value }) })), /* @__PURE__ */ React.createElement("label", { className: "field" }, /* @__PURE__ */ React.createElement("span", null, "Round"), /* @__PURE__ */ React.createElement("input", { id: "fxn-round", value: draft.round, placeholder: "Friendly", onChange: (e) => setDraft({ ...draft, round: e.target.value }) })), /* @__PURE__ */ React.createElement("label", { className: "field" }, /* @__PURE__ */ React.createElement("span", null, "Opponent"), /* @__PURE__ */ React.createElement("select", { id: "fxn-opp", value: draft.opp, onChange: (e) => setDraft({ ...draft, opp: e.target.value }) }, Object.entries(OPPONENTS).map(([code, name]) => /* @__PURE__ */ React.createElement("option", { key: code, value: code }, name)))), /* @__PURE__ */ React.createElement("label", { className: "field" }, /* @__PURE__ */ React.createElement("span", null, "Home or away"), /* @__PURE__ */ React.createElement("select", { id: "fxn-loc", value: draft.loc, onChange: (e) => setDraft({ ...draft, loc: e.target.value }) }, /* @__PURE__ */ React.createElement("option", { value: "H" }, "Home"), /* @__PURE__ */ React.createElement("option", { value: "A" }, "Away"), /* @__PURE__ */ React.createElement("option", { value: "TBC" }, "TBC"))), /* @__PURE__ */ React.createElement("label", { className: "field" }, /* @__PURE__ */ React.createElement("span", null, "Kick off"), /* @__PURE__ */ React.createElement("input", { id: "fxn-time", value: draft.time, placeholder: "5pm", onChange: (e) => setDraft({ ...draft, time: e.target.value }) })), /* @__PURE__ */ React.createElement("div", { className: "wide" }, /* @__PURE__ */ React.createElement("button", { type: "submit", className: "btn primary" }, "Add game")))));
+  }
+  function ScheduleTab({ ctx }) {
+    let { today, week, setWeek, openDay, setOpenDay } = ctx, dates = [0, 1, 2, 3, 4, 5, 6].map((i) => addDays(week, i)), isThisWeek = week === mondayOf(today);
+    return /* @__PURE__ */ React.createElement("div", { className: "stack" }, /* @__PURE__ */ React.createElement("section", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "week-nav" }, /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn", onClick: () => setWeek(addDays(week, -7)), "aria-label": "Previous week" }, "\u2190 Prev"), /* @__PURE__ */ React.createElement("div", { className: "week-label" }, /* @__PURE__ */ React.createElement("span", { className: "display" }, "Week of ", fmt(week, { day: "numeric", month: "long" })), !isThisWeek && /* @__PURE__ */ React.createElement("button", { type: "button", className: "link-btn", onClick: () => {
+      setWeek(mondayOf(today)), setOpenDay(today);
+    } }, "Back to this week")), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn", onClick: () => setWeek(addDays(week, 7)), "aria-label": "Next week" }, "Next \u2192")), /* @__PURE__ */ React.createElement("div", { className: "days" }, dates.map((d) => /* @__PURE__ */ React.createElement(DayRow, { key: d, date: d, ctx, open: openDay === d, onToggle: () => setOpenDay(openDay === d ? null : d) }))), /* @__PURE__ */ React.createElement("label", { className: "field jump" }, /* @__PURE__ */ React.createElement("span", null, "Jump to a date"), /* @__PURE__ */ React.createElement("input", { id: "jump-date", type: "date", onChange: (e) => {
+      e.target.value && (setWeek(mondayOf(e.target.value)), setOpenDay(e.target.value));
+    } }))), /* @__PURE__ */ React.createElement(FixtureEditor, { ctx }));
+  }
+  function BagCard({ bag, ctx, trip, kitLabel, editing, allBags }) {
+    let { data, update } = ctx, tripTicks = data.packs[trip.id] || {}, bagTicked = (tripTicks.bags || {})[bag.id], itemTicks = (tripTicks.items || {})[bag.id] || {}, [open, setOpen] = useState(!1), [newItem, setNewItem] = useState(""), doneItems = bag.items.filter((i) => itemTicks[i.id]).length, setTicks = (fn) => update("packs", (p) => ({ ...p, [trip.id]: fn(p[trip.id] || {}) })), toggleBag = () => setTicks((t) => ({ ...t, bags: { ...t.bags || {}, [bag.id]: !bagTicked } })), toggleItem = (itemId) => setTicks((t) => {
+      let items2 = { ...t.items || {} };
+      return items2[bag.id] = { ...items2[bag.id] || {}, [itemId]: !itemTicks[itemId] }, { ...t, items: items2 };
+    }), editBag = (patch) => update("bags", (bags) => bags.map((b) => b.id === bag.id ? { ...b, ...patch } : b)), moveItem = (item, toId) => update("bags", (bags) => bags.map((b) => b.id === bag.id ? { ...b, items: b.items.filter((i) => i.id !== item.id) } : b.id === toId ? { ...b, items: [...b.items, item] } : b)), [confirmDel, setConfirmDel] = useState(!1);
+    return /* @__PURE__ */ React.createElement("div", { className: `bag ${bagTicked ? "packed" : ""}` }, /* @__PURE__ */ React.createElement("div", { className: "bag-head" }, !editing && /* @__PURE__ */ React.createElement(Tick, { id: `bag-${trip.id}-${bag.id}`, checked: bagTicked, onChange: toggleBag, sub: bag.carrier === "Players" ? "Carried by a player" : `Carried by ${bag.carrier}` }, /* @__PURE__ */ React.createElement("span", { className: "bag-name" }, bag.name)), editing && !open && /* @__PURE__ */ React.createElement("button", { type: "button", className: "bag-edit-closed", onClick: () => setOpen(!0) }, /* @__PURE__ */ React.createElement("span", { className: "bag-name" }, bag.name), /* @__PURE__ */ React.createElement("span", { className: "tick-sub" }, bag.carrier === "Players" ? "Carried by a player" : `Carried by ${bag.carrier}`, " \xB7 Tap to edit")), editing && open && /* @__PURE__ */ React.createElement("div", { className: "bag-edit-head" }, /* @__PURE__ */ React.createElement("label", { className: "field" }, /* @__PURE__ */ React.createElement("span", null, "Bag name"), /* @__PURE__ */ React.createElement("input", { id: `bn-${bag.id}`, value: bag.name, onChange: (e) => editBag({ name: e.target.value }) })), /* @__PURE__ */ React.createElement("label", { className: "field" }, /* @__PURE__ */ React.createElement("span", null, "Carried by"), /* @__PURE__ */ React.createElement("select", { id: `bc-${bag.id}`, value: bag.carrier, onChange: (e) => editBag({ carrier: e.target.value }) }, /* @__PURE__ */ React.createElement("option", { value: "Players" }, "A player (goes in the squad allocation)"), STAFF.map((s) => /* @__PURE__ */ React.createElement("option", { key: s, value: s }, s)), !STAFF.includes(bag.carrier) && bag.carrier !== "Players" && /* @__PURE__ */ React.createElement("option", { value: bag.carrier }, bag.carrier))), bag.carrier === "Players" && /* @__PURE__ */ React.createElement("label", { className: "field small-field" }, /* @__PURE__ */ React.createElement("span", null, "Weight (1 easiest)"), /* @__PURE__ */ React.createElement("input", { id: `bd-${bag.id}`, type: "number", min: "1", max: "30", value: bag.difficulty || 1, onChange: (e) => editBag({ difficulty: Number(e.target.value) || 1 }) }))), /* @__PURE__ */ React.createElement("button", { type: "button", className: "bag-toggle", onClick: () => setOpen(!open), "aria-expanded": open }, bag.items.length ? /* @__PURE__ */ React.createElement(Progress, { done: doneItems, total: bag.items.length }) : /* @__PURE__ */ React.createElement("span", { className: "small muted" }, "No items listed"), /* @__PURE__ */ React.createElement("span", { className: "chev", "aria-hidden": "true" }, open ? "\u25B4" : "\u25BE"))), editing && open && /* @__PURE__ */ React.createElement("div", { className: "trip-chips" }, /* @__PURE__ */ React.createElement("span", { className: "small muted" }, "Goes on:"), OCCASIONS.map((o) => {
+      let on = bag.trips.includes(o.id);
+      return /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          type: "button",
+          key: o.id,
+          className: `pill ${on ? "on" : ""}`,
+          "aria-pressed": on,
+          onClick: () => editBag({ trips: on ? bag.trips.filter((t) => t !== o.id) : [...bag.trips, o.id] })
+        },
+        o.label
+      );
+    })), open && /* @__PURE__ */ React.createElement("div", { className: "bag-items" }, bag.items.map((it) => /* @__PURE__ */ React.createElement("div", { key: it.id, className: "item-row" }, !editing && /* @__PURE__ */ React.createElement(Tick, { id: `it-${trip.id}-${bag.id}-${it.id}`, checked: itemTicks[it.id], onChange: () => toggleItem(it.id) }, kitText(it.name, kitLabel)), editing && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        id: `in-${it.id}`,
+        "aria-label": "Item name",
+        value: it.name,
+        onChange: (e) => editBag({ items: bag.items.map((x) => x.id === it.id ? { ...x, name: e.target.value } : x) })
+      }
+    ), /* @__PURE__ */ React.createElement("select", { id: `mv-${it.id}`, "aria-label": "Move to another bag", value: "", onChange: (e) => e.target.value && moveItem(it, e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "Move to\u2026"), allBags.filter((b) => b.id !== bag.id).map((b) => /* @__PURE__ */ React.createElement("option", { key: b.id, value: b.id }, b.name))), /* @__PURE__ */ React.createElement("button", { type: "button", className: "icon-btn danger", "aria-label": "Remove item", onClick: () => editBag({ items: bag.items.filter((x) => x.id !== it.id) }) }, "\xD7")))), editing && /* @__PURE__ */ React.createElement("form", { className: "le-add", onSubmit: (e) => {
+      e.preventDefault();
+      let t = newItem.trim();
+      t && (editBag({ items: [...bag.items, { id: uid(), name: t }] }), setNewItem(""));
+    } }, /* @__PURE__ */ React.createElement("input", { id: `ni-${bag.id}`, "aria-label": "New item", placeholder: "Add an item. Use {kit} for Home, Away or Third", value: newItem, onChange: (e) => setNewItem(e.target.value) }), /* @__PURE__ */ React.createElement("button", { type: "submit", className: "btn" }, "Add")), editing && /* @__PURE__ */ React.createElement("div", { className: "bag-danger" }, confirmDel ? /* @__PURE__ */ React.createElement("span", { className: "confirm" }, "Delete ", bag.name, " and its items?", /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn danger", onClick: () => update("bags", (bags) => bags.filter((b) => b.id !== bag.id)) }, "Yes, delete"), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn ghost", onClick: () => setConfirmDel(!1) }, "Keep it")) : /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn ghost danger-text", onClick: () => setConfirmDel(!0) }, "Delete bag"))));
+  }
+  function BagsTab({ ctx }) {
+    let { data, update, trip, sorted, today, setTripId, printOff, canPrint } = ctx, [editing, setEditing] = useState(!1), [showAll, setShowAll] = useState(!1), [newBag, setNewBag] = useState("");
+    if (!trip) return /* @__PURE__ */ React.createElement("section", { className: "card" }, /* @__PURE__ */ React.createElement("p", null, "No games set. Add one on the Schedule tab."));
+    let occ = defaultOccasion(trip), kit = defaultKit(trip), kitLabel = KITS.find((k) => k.id === kit).label, editFixture = (patch) => update("fixtures", (list2) => list2.map((f) => f.id === trip.id ? { ...f, ...patch } : f)), bags = data.bags.filter((b) => showAll || editing || b.trips.includes(occ)), tripBags = data.bags.filter((b) => b.trips.includes(occ)), t = data.packs[trip.id] || {}, packedBags = tripBags.filter((b) => (t.bags || {})[b.id]).length, carry = t.carry || {}, away = occ === "away" || occ === "awayStay", md = mdInfo(today, sorted);
+    return /* @__PURE__ */ React.createElement("div", { className: "stack" }, /* @__PURE__ */ React.createElement("section", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "trip-grid" }, /* @__PURE__ */ React.createElement(TripPicker, { fixtures: sorted, value: trip.id, onChange: setTripId, today }), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("span", null, "Trip type"), /* @__PURE__ */ React.createElement(Segmented, { name: "Trip type", value: occ, options: OCCASIONS, onChange: (v) => editFixture({ occasion: v }) })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("span", null, "Kit"), /* @__PURE__ */ React.createElement(Segmented, { name: "Kit", value: kit, options: KITS, onChange: (v) => editFixture({ kit: v }) }))), /* @__PURE__ */ React.createElement("p", { className: "small muted" }, OCCASIONS.find((o) => o.id === occ).hint, " ", fmtLong(trip.date), trip.time ? `, ${trip.time}` : "", ".", md.next && md.next.id === trip.id && md.daysTo > 0 ? ` ${md.daysTo} days to go.` : ""), /* @__PURE__ */ React.createElement("div", { className: "summary-row" }, /* @__PURE__ */ React.createElement("div", { className: "big-stat" }, /* @__PURE__ */ React.createElement("span", { className: "bs-num" }, packedBags, /* @__PURE__ */ React.createElement("small", null, "/", tripBags.length)), /* @__PURE__ */ React.createElement("span", { className: "bs-lbl" }, "bags packed")), /* @__PURE__ */ React.createElement("div", { className: "btn-row" }, /* @__PURE__ */ React.createElement("button", { type: "button", className: `btn ${editing ? "primary" : ""}`, onClick: () => setEditing(!editing) }, editing ? "Done editing" : "Edit bags"), !editing && /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn ghost", onClick: () => setShowAll(!showAll) }, showAll ? "Only this trip" : "Show every bag"), canPrint && /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn print", onClick: () => printOff(trip) }, "PDF print off"))), /* @__PURE__ */ React.createElement("p", { className: "small muted" }, "This is a second tick alongside the paper lists. Ticks are saved for this game only, so the next trip starts clean.")), editing && /* @__PURE__ */ React.createElement("section", { className: "card edit-note" }, /* @__PURE__ */ React.createElement("p", { className: "small" }, "Rename a bag, change who carries it, tap the trip types it goes on, move items with ", /* @__PURE__ */ React.createElement("strong", null, "Move to"), ", or add and remove items."), /* @__PURE__ */ React.createElement("form", { className: "le-add", onSubmit: (e) => {
+      e.preventDefault();
+      let n = newBag.trim();
+      n && (update("bags", (b) => [...b, { id: uid(), name: n, carrier: "Players", difficulty: 5, trips: [occ], items: [] }]), setNewBag(""));
+    } }, /* @__PURE__ */ React.createElement("input", { id: "new-bag", "aria-label": "New bag name", placeholder: "New bag name", value: newBag, onChange: (e) => setNewBag(e.target.value) }), /* @__PURE__ */ React.createElement("button", { type: "submit", className: "btn primary" }, "Add bag"))), /* @__PURE__ */ React.createElement("section", { className: "bags" }, bags.map((b) => /* @__PURE__ */ React.createElement(BagCard, { key: b.id, bag: b, ctx, trip, kitLabel, editing, allBags: data.bags }))), away && !editing && /* @__PURE__ */ React.createElement("section", { className: "card" }, /* @__PURE__ */ React.createElement("h3", { className: "section-title" }, "Carry-on items"), /* @__PURE__ */ React.createElement("div", { className: "carry" }, data.settings.carryOns.map((c) => /* @__PURE__ */ React.createElement(Tick, { key: c, id: `co-${trip.id}-${c}`, checked: carry[c], onChange: () => update("packs", (p) => {
+      let x = p[trip.id] || {};
+      return { ...p, [trip.id]: { ...x, carry: { ...x.carry || {}, [c]: !carry[c] } } };
+    }) }, c))), /* @__PURE__ */ React.createElement("p", { className: "small muted" }, "The 4 most junior players in the squad take these. See the Squad tab.")));
+  }
+  var SIZE_FIELDS = Object.keys(UNIFORM_LABELS), SHORT_LABELS = { matchShirt: "Shirt", matchShorts: "Shorts", warmUpShirt: "Warm up shirt", warmUpZip: "Warm up 1/4", trainingShorts: "Training shorts" };
+  function PlayerEditor({ players, setPlayers }) {
+    let ordered = [...players].sort((a, b) => a.seniority - b.seniority), save = (list2) => setPlayers(list2.map((p, i) => ({ ...p, seniority: i + 1 }))), edit = (id, patch) => save(ordered.map((p) => p.id === id ? { ...p, ...patch } : p)), move = (i, dir) => {
+      let j = i + dir;
+      if (j < 0 || j >= ordered.length) return;
+      let next = [...ordered];
+      [next[i], next[j]] = [next[j], next[i]], save(next);
+    }, [confirmId, setConfirmId] = useState(null);
+    return /* @__PURE__ */ React.createElement("div", { className: "peditor" }, /* @__PURE__ */ React.createElement("p", { className: "small muted" }, "The list runs from most senior at the top to most junior at the bottom. Use the arrows to change the order. Bags are handed out from this order."), /* @__PURE__ */ React.createElement("div", { className: "table-wrap" }, /* @__PURE__ */ React.createElement("table", { className: "ptable" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", null, "Order"), /* @__PURE__ */ React.createElement("th", null, "No."), /* @__PURE__ */ React.createElement("th", null, "Name"), /* @__PURE__ */ React.createElement("th", null, "Pos"), /* @__PURE__ */ React.createElement("th", null, "Group"), SIZE_FIELDS.map((f) => /* @__PURE__ */ React.createElement("th", { key: f }, SHORT_LABELS[f])), /* @__PURE__ */ React.createElement("th", null))), /* @__PURE__ */ React.createElement("tbody", null, ordered.map((p, i) => /* @__PURE__ */ React.createElement("tr", { key: p.id }, /* @__PURE__ */ React.createElement("td", { className: "order-cell" }, /* @__PURE__ */ React.createElement("span", { className: "num" }, i + 1), /* @__PURE__ */ React.createElement("button", { type: "button", className: "icon-btn", "aria-label": `Move ${p.name} up`, onClick: () => move(i, -1) }, "\u2191"), /* @__PURE__ */ React.createElement("button", { type: "button", className: "icon-btn", "aria-label": `Move ${p.name} down`, onClick: () => move(i, 1) }, "\u2193")), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("input", { id: `pn-${p.id}`, className: "w-num", "aria-label": "Number", value: p.number, onChange: (e) => edit(p.id, { number: e.target.value.replace(/\D/g, "") === "" ? "" : Number(e.target.value.replace(/\D/g, "")) }) })), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("input", { id: `pname-${p.id}`, className: "w-name", "aria-label": "Name", value: p.name, onChange: (e) => edit(p.id, { name: e.target.value }) })), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("input", { id: `ppos-${p.id}`, className: "w-pos", "aria-label": "Position", value: p.position, onChange: (e) => edit(p.id, { position: e.target.value.toUpperCase() }) })), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("select", { id: `pg-${p.id}`, "aria-label": "Group", value: p.group, onChange: (e) => edit(p.id, { group: e.target.value }) }, /* @__PURE__ */ React.createElement("option", null, "First team"), /* @__PURE__ */ React.createElement("option", null, "Academy"))), SIZE_FIELDS.map((f) => /* @__PURE__ */ React.createElement("td", { key: f }, /* @__PURE__ */ React.createElement("input", { id: `ps-${p.id}-${f}`, className: "w-size", "aria-label": UNIFORM_LABELS[f], value: p[f] || "", onChange: (e) => edit(p.id, { [f]: e.target.value.toUpperCase() }) }))), /* @__PURE__ */ React.createElement("td", null, confirmId === p.id ? /* @__PURE__ */ React.createElement("span", { className: "confirm" }, /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn danger", onClick: () => {
+      save(ordered.filter((x) => x.id !== p.id)), setConfirmId(null);
+    } }, "Remove"), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn ghost", onClick: () => setConfirmId(null) }, "Keep")) : /* @__PURE__ */ React.createElement("button", { type: "button", className: "icon-btn danger", "aria-label": `Remove ${p.name}`, onClick: () => setConfirmId(p.id) }, "\xD7"))))))), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn", onClick: () => save([...ordered, { id: uid(), number: "", name: "New player", position: "", group: "First team", matchShirt: "", matchShorts: "", warmUpShirt: "", warmUpZip: "", trainingShorts: "", seniority: ordered.length + 1 }]) }, "Add a player"), /* @__PURE__ */ React.createElement("p", { className: "small muted" }, "Sizes like M (GK) or XL (L) are fine. Leave a size blank if it is not known yet."));
+  }
+  function SquadTab({ ctx }) {
+    let { data, update, trip, sorted, today, setTripId, printOff, canPrint } = ctx, players = data.players || [], ids = data.squad.ids || [], squad = ids.map((id) => players.find((p) => p.id === id)).filter(Boolean), setIds = (next) => update("squad", (s) => ({ ...s, ids: next })), [q, setQ] = useState(""), [editing, setEditing] = useState(!1), req = uniformRequirements(squad), occ = trip ? defaultOccasion(trip) : "away", tripBags = data.bags.filter((b) => b.trips.includes(occ)), alloc = bagAllocation(squad, tripBags, data.settings.carryOns), match = (p) => !q || p.name.toLowerCase().includes(q.toLowerCase()) || String(p.number) === q, avail = players.filter((p) => !ids.includes(p.id) && match(p)).sort((a, b) => (Number(a.number) || 999) - (Number(b.number) || 999)), groups = ["First team", "Academy"], firstTeam = players.filter((p) => p.group === "First team"), missing = squad.filter((p) => SIZE_FIELDS.some((f) => !p[f]));
+    if (editing)
+      return /* @__PURE__ */ React.createElement("div", { className: "stack" }, /* @__PURE__ */ React.createElement("section", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "section-head" }, /* @__PURE__ */ React.createElement("h3", { className: "section-title" }, "Edit players ", /* @__PURE__ */ React.createElement("span", { className: "count" }, players.length)), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn primary", onClick: () => setEditing(!1) }, "Done editing")), /* @__PURE__ */ React.createElement(PlayerEditor, { players, setPlayers: (list2) => update("players", list2) })));
+    let prow = (p, selected) => /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        type: "button",
+        key: p.id,
+        className: `prow ${selected ? "sel" : ""}`,
+        onClick: () => setIds(selected ? ids.filter((x) => x !== p.id) : [...ids, p.id])
+      },
+      /* @__PURE__ */ React.createElement("span", { className: "pnum" }, p.number),
+      /* @__PURE__ */ React.createElement("span", { className: "pname" }, p.name),
+      /* @__PURE__ */ React.createElement("span", { className: "ppos" }, p.position),
+      /* @__PURE__ */ React.createElement("span", { className: "padd" }, selected ? "Remove" : "Add")
+    );
+    return /* @__PURE__ */ React.createElement("div", { className: "stack" }, /* @__PURE__ */ React.createElement("section", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "section-head" }, /* @__PURE__ */ React.createElement("h3", { className: "section-title" }, "Squad for the trip ", /* @__PURE__ */ React.createElement("span", { className: "count" }, squad.length)), /* @__PURE__ */ React.createElement("div", { className: "btn-row" }, /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn", onClick: () => setIds(firstTeam.map((p) => p.id)) }, "Whole first team (", firstTeam.length, ")"), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn ghost danger-text", onClick: () => setIds([]) }, "Clear"), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn ghost", onClick: () => setEditing(!0) }, "Edit players"), canPrint && trip && /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn print", disabled: !squad.length, onClick: () => printOff(trip) }, "PDF print off"))), /* @__PURE__ */ React.createElement("div", { className: "squad-grid" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { className: "field" }, /* @__PURE__ */ React.createElement("span", null, "Find a player"), /* @__PURE__ */ React.createElement("input", { id: "player-search", value: q, placeholder: "Name or number", onChange: (e) => setQ(e.target.value) })), /* @__PURE__ */ React.createElement("div", { className: "plist" }, groups.map((g) => {
+      let list2 = avail.filter((p) => p.group === g);
+      return list2.length ? /* @__PURE__ */ React.createElement(React.Fragment, { key: g }, /* @__PURE__ */ React.createElement("p", { className: "group-label" }, g), list2.map((p) => prow(p, !1))) : null;
+    }))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("p", { className: "field-label" }, "Selected"), !squad.length && /* @__PURE__ */ React.createElement("p", { className: "muted small" }, "Tap players on the left to add them."), /* @__PURE__ */ React.createElement("div", { className: "plist" }, squad.map((p) => prow(p, !0)))))), squad.length > 0 && /* @__PURE__ */ React.createElement("section", { className: "card" }, /* @__PURE__ */ React.createElement("h3", { className: "section-title" }, "Kit sizes needed"), /* @__PURE__ */ React.createElement("p", { className: "small muted" }, "Count of each size in the squad, plus 2 spares of every size used."), /* @__PURE__ */ React.createElement("div", { className: "sizes" }, Object.entries(req).map(([k, sizes]) => /* @__PURE__ */ React.createElement("div", { key: k, className: "size-box" }, /* @__PURE__ */ React.createElement("strong", null, UNIFORM_LABELS[k]), Object.entries(sizes).sort().map(([sz, n]) => /* @__PURE__ */ React.createElement("span", { key: sz, className: "size-line" }, /* @__PURE__ */ React.createElement("span", null, sz), /* @__PURE__ */ React.createElement("span", { className: "num" }, n)))))), missing.length > 0 && /* @__PURE__ */ React.createElement("p", { className: "small warn" }, "Sizes missing for ", missing.map((p) => p.name).join(", "), ". Add them in Edit players.")), squad.length > 0 && /* @__PURE__ */ React.createElement("section", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "section-head" }, /* @__PURE__ */ React.createElement("h3", { className: "section-title" }, "Who carries what"), trip && /* @__PURE__ */ React.createElement(TripPicker, { fixtures: sorted, value: trip.id, onChange: setTripId, today })), /* @__PURE__ */ React.createElement("p", { className: "small muted" }, "For ", OCCASIONS.find((o) => o.id === occ).label.toLowerCase(), ". The 3 most senior carry nothing. The 4 most junior also take a carry-on. Easiest bags go to the more senior players. Change the order in Edit players."), /* @__PURE__ */ React.createElement("div", { className: "table-wrap" }, /* @__PURE__ */ React.createElement("table", { className: "alloc" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", null, "Player"), /* @__PURE__ */ React.createElement("th", null, "Order"), /* @__PURE__ */ React.createElement("th", null, "Bag"), /* @__PURE__ */ React.createElement("th", null, "Carry-on"))), /* @__PURE__ */ React.createElement("tbody", null, alloc.rows.map((r) => /* @__PURE__ */ React.createElement("tr", { key: r.player.id }, /* @__PURE__ */ React.createElement("td", null, r.player.name), /* @__PURE__ */ React.createElement("td", { className: "num" }, r.player.seniority), /* @__PURE__ */ React.createElement("td", null, r.bag ? r.bag.name : /* @__PURE__ */ React.createElement("span", { className: "muted" }, "No bag")), /* @__PURE__ */ React.createElement("td", null, r.carryOn || /* @__PURE__ */ React.createElement("span", { className: "muted" }, "None"))))))), alloc.spare.length > 0 && /* @__PURE__ */ React.createElement("p", { className: "small warn" }, "Not given out: ", alloc.spare.map((b) => b.name).join(", "), ". Add players or hand these to staff.")));
+  }
+  function GameDayTab({ ctx }) {
+    let { data, update, trip, sorted, today, setTripId } = ctx, [editing, setEditing] = useState(!1);
+    if (!trip) return /* @__PURE__ */ React.createElement("section", { className: "card" }, /* @__PURE__ */ React.createElement("p", null, "No games set. Add one on the Schedule tab."));
+    let items2 = data.settings.checklists.gameday, t = data.packs[trip.id] && data.packs[trip.id].gameday || {}, done = items2.filter((i) => t[i.id]).length, kit = KITS.find((k) => k.id === defaultKit(trip)), setT = (fn) => update("packs", (p) => {
+      let x = p[trip.id] || {};
+      return { ...p, [trip.id]: { ...x, gameday: fn(x.gameday || {}) } };
+    });
+    return /* @__PURE__ */ React.createElement("div", { className: "stack" }, /* @__PURE__ */ React.createElement("section", { className: "card" }, /* @__PURE__ */ React.createElement(TripPicker, { fixtures: sorted, value: trip.id, onChange: setTripId, today }), /* @__PURE__ */ React.createElement("div", { className: "gd-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h2", { className: "display" }, fixtureTitle(trip)), /* @__PURE__ */ React.createElement("p", { className: "muted" }, locLabel(trip.loc), " \xB7 ", fmtLong(trip.date), trip.time ? ` \xB7 ${trip.time}` : ""), /* @__PURE__ */ React.createElement("span", { className: "pill static" }, kit.label, " kit")), /* @__PURE__ */ React.createElement("div", { className: "big-stat" }, /* @__PURE__ */ React.createElement("span", { className: "bs-num" }, done, /* @__PURE__ */ React.createElement("small", null, "/", items2.length)), /* @__PURE__ */ React.createElement("span", { className: "bs-lbl" }, "done")))), /* @__PURE__ */ React.createElement("section", { className: "card" }, /* @__PURE__ */ React.createElement("div", { className: "section-head" }, /* @__PURE__ */ React.createElement("h3", { className: "section-title" }, "Changing room setup"), /* @__PURE__ */ React.createElement("div", { className: "btn-row" }, /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn ghost", onClick: () => setEditing(!editing) }, editing ? "Done editing" : "Edit list"), !editing && /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn ghost", onClick: () => setT(() => ({})) }, "Clear ticks"))), !editing && items2.map((i) => /* @__PURE__ */ React.createElement(Tick, { key: i.id, id: `gd-${trip.id}-${i.id}`, checked: t[i.id], onChange: () => setT((x) => ({ ...x, [i.id]: !x[i.id] })) }, i.text)), editing && /* @__PURE__ */ React.createElement(
+      ListEditor,
+      {
+        idPrefix: "gdl",
+        items: items2,
+        placeholder: "Add a setup job",
+        onChange: (next) => update("settings", (s) => ({ ...s, checklists: { ...s.checklists, gameday: next } }))
+      }
+    ), /* @__PURE__ */ React.createElement("p", { className: "small muted" }, "Ticks are saved for this game only.")));
+  }
+  function GuideTab({ ctx }) {
+    let { data, update, replaceAll, sync, saveFile, canSave } = ctx, [msg, setMsg] = useState(""), [confirmReset, setConfirmReset] = useState(!1), setList = (name) => (next) => update("settings", (s) => ({ ...s, checklists: { ...s.checklists, [name]: next } })), carry = data.settings.carryOns.map((c, i) => ({ id: `c${i}-${c}`, text: c })), exportData = async () => {
+      let body = JSON.stringify({ app: "phoenix-team-manager", version: 2, saved: (/* @__PURE__ */ new Date()).toISOString(), data }, null, 2), res = await saveFile(`phoenix-team-manager-backup-${todayISO()}.json`, body);
+      setMsg(res);
+    }, importData = (file) => {
+      let r = new FileReader();
+      r.onload = () => {
+        try {
+          let parsed = JSON.parse(r.result), d = parsed.data || parsed;
+          if (!d.fixtures || !d.bags) throw new Error("not a backup");
+          replaceAll(d), setMsg("Backup loaded.");
+        } catch {
+          setMsg("That file is not a Phoenix Team Manager backup.");
+        }
+      }, r.readAsText(file);
+    }, syncText = {
+      synced: "Saving to your Claude account. Changes show on your phone and laptop.",
+      connecting: "Connecting to your Claude account\u2026",
+      slow: "Still connecting. Changes are kept on this device for now.",
+      offline: "Cannot reach your Claude account right now. Changes are kept on this device for now.",
+      readonly: "You can view this page but not change it. Ask the owner for edit access.",
+      local: "Saving on this device only."
+    }[sync];
+    return /* @__PURE__ */ React.createElement("div", { className: "stack" }, /* @__PURE__ */ React.createElement("section", { className: "card prose" }, /* @__PURE__ */ React.createElement("h2", { className: "display" }, "How this app works"), /* @__PURE__ */ React.createElement("p", null, "This is the equipment and travel app for the first team. Anyone stepping into the role can run a week from it."), /* @__PURE__ */ React.createElement("ol", null, /* @__PURE__ */ React.createElement("li", null, /* @__PURE__ */ React.createElement("strong", null, "Today"), " shows the day's session, where we are in the game week, today's jobs and any reminders."), /* @__PURE__ */ React.createElement("li", null, /* @__PURE__ */ React.createElement("strong", null, "Schedule"), " shows one week at a time. Tap a day to tick jobs, add reminders, change the session or write notes. Fixtures sit underneath."), /* @__PURE__ */ React.createElement("li", null, /* @__PURE__ */ React.createElement("strong", null, "Bag packs"), " lists every bag for the next trip. Pick the trip type and the kit, then tick bags and items as they are packed."), /* @__PURE__ */ React.createElement("li", null, /* @__PURE__ */ React.createElement("strong", null, "Squad"), " picks the travelling squad. It works out kit sizes and who carries which bag."), /* @__PURE__ */ React.createElement("li", null, /* @__PURE__ */ React.createElement("strong", null, "Game day"), " is the changing room setup list.")), /* @__PURE__ */ React.createElement("h3", null, "The game week"), /* @__PURE__ */ React.createElement("p", null, "Every day is counted from the next game. MD is match day. MD-1 is the day before. MD+1 is the day after."), /* @__PURE__ */ React.createElement("div", { className: "table-wrap" }, /* @__PURE__ */ React.createElement("table", { className: "plain" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", null, "Day"), /* @__PURE__ */ React.createElement("th", null, "Normally"), /* @__PURE__ */ React.createElement("th", null, "Kit jobs"))), /* @__PURE__ */ React.createElement("tbody", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", null, "MD-5, MD-4"), /* @__PURE__ */ React.createElement("td", null, "Training"), /* @__PURE__ */ React.createElement("td", null, "Training day list")), /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", null, "MD-3"), /* @__PURE__ */ React.createElement("td", null, "Training"), /* @__PURE__ */ React.createElement("td", null, "Training day list")), /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", null, "MD-2"), /* @__PURE__ */ React.createElement("td", null, "Day off"), /* @__PURE__ */ React.createElement("td", null, "None")), /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", null, "MD-1"), /* @__PURE__ */ React.createElement("td", null, "Training. Away games: train, then travel"), /* @__PURE__ */ React.createElement("td", null, "Training list, travel list, bag packs")), /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", null, "MD"), /* @__PURE__ */ React.createElement("td", null, "Game"), /* @__PURE__ */ React.createElement("td", null, "Game day setup")), /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", null, "MD+1"), /* @__PURE__ */ React.createElement("td", null, "Recovery. Away games: travel home"), /* @__PURE__ */ React.createElement("td", null, "First day back list on the first training day"))))), /* @__PURE__ */ React.createElement("p", { className: "small muted" }, "The days come from the 2026-27 season schedule. Where it has no entry, the pattern above fills the day in. Any day can be changed by hand."), /* @__PURE__ */ React.createElement("h3", null, "Session codes"), /* @__PURE__ */ React.createElement("div", { className: "codes" }, SESSION_CODES.map(([c, t]) => /* @__PURE__ */ React.createElement("div", { key: c, className: "code-row" }, /* @__PURE__ */ React.createElement(SessionChips, { am: c, pm: "" }), /* @__PURE__ */ React.createElement("span", null, t))))), /* @__PURE__ */ React.createElement("section", { className: "card" }, /* @__PURE__ */ React.createElement("h3", { className: "section-title" }, "Edit the checklists"), /* @__PURE__ */ React.createElement("p", { className: "small muted" }, "These lists show up on the right days by themselves."), /* @__PURE__ */ React.createElement("div", { className: "grid-2" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h4", { className: "mini-title" }, "Training day"), /* @__PURE__ */ React.createElement(ListEditor, { idPrefix: "l-tr", items: data.settings.checklists.training, onChange: setList("training"), placeholder: "Add a training day job" })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h4", { className: "mini-title" }, "First day back after a game"), /* @__PURE__ */ React.createElement(ListEditor, { idPrefix: "l-fb", items: data.settings.checklists.firstBack, onChange: setList("firstBack"), placeholder: "Add a first day back job" })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h4", { className: "mini-title" }, "Travel day"), /* @__PURE__ */ React.createElement(ListEditor, { idPrefix: "l-tv", items: data.settings.checklists.travel, onChange: setList("travel"), placeholder: "Add a travel job" })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h4", { className: "mini-title" }, "Carry-on items"), /* @__PURE__ */ React.createElement(ListEditor, { idPrefix: "l-co", items: carry, onChange: (next) => update("settings", (s) => ({ ...s, carryOns: next.map((x) => x.text) })), placeholder: "Add a carry-on item" })))), /* @__PURE__ */ React.createElement("section", { className: "card" }, /* @__PURE__ */ React.createElement("h3", { className: "section-title" }, "Saving and backups"), /* @__PURE__ */ React.createElement("p", { className: `sync-line ${sync}` }, /* @__PURE__ */ React.createElement("span", { className: "dot", "aria-hidden": "true" }), syncText), /* @__PURE__ */ React.createElement("div", { className: "btn-row" }, canSave && /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn", onClick: exportData }, "Download a backup"), /* @__PURE__ */ React.createElement("label", { className: "btn file-btn", htmlFor: "import-file" }, "Load a backup", /* @__PURE__ */ React.createElement("input", { id: "import-file", type: "file", accept: ".json,application/json", onChange: (e) => e.target.files[0] && importData(e.target.files[0]) })), confirmReset ? /* @__PURE__ */ React.createElement("span", { className: "confirm" }, "Clear every tick, reminder and edit?", /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn danger", onClick: () => {
+      replaceAll(defaultData()), setConfirmReset(!1), setMsg("Everything is back to the start of season settings.");
+    } }, "Yes, reset"), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn ghost", onClick: () => setConfirmReset(!1) }, "Cancel")) : /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn ghost danger-text", onClick: () => setConfirmReset(!0) }, "Reset everything")), msg && /* @__PURE__ */ React.createElement("p", { className: "small" }, msg)));
+  }
+  function buildPrintOff({ trip, data }) {
+    let { jsPDF } = window.jspdf, doc = new jsPDF({ unit: "mm", format: "a4" }), occ = defaultOccasion(trip), kit = KITS.find((k) => k.id === defaultKit(trip)).label, occLabel = OCCASIONS.find((o) => o.id === occ).label, t = data.packs[trip.id] || {}, squad = (data.squad.ids || []).map((id) => (data.players || []).find((p) => p.id === id)).filter(Boolean), tripBags = data.bags.filter((b) => b.trips.includes(occ)), alloc = bagAllocation(squad, tripBags, data.settings.carryOns), req = uniformRequirements(squad), W = 210, M = 14, box = (data2) => {
+      if (data2.section === "body" && data2.column.index === 0) {
+        let x = data2.cell.x + (data2.cell.width - 4) / 2, y2 = data2.cell.y + (data2.cell.height - 4) / 2;
+        data2.doc.setDrawColor(30), data2.doc.setLineWidth(0.3), data2.doc.rect(x, y2, 4, 4);
+      }
+    }, head = (title, y2) => (doc.setFont("helvetica", "bold"), doc.setFontSize(12), doc.setTextColor(20), doc.text(title, M, y2), y2 + 3), tableOpts = { theme: "grid", styles: { fontSize: 9, cellPadding: 1.8, lineColor: [150, 150, 150], lineWidth: 0.2, textColor: 20 }, headStyles: { fillColor: [235, 235, 230], textColor: 20, fontStyle: "bold" }, margin: { left: M, right: M } };
+    doc.setFillColor(242, 194, 0), doc.rect(0, 0, W, 4, "F"), doc.setFont("helvetica", "bold"), doc.setFontSize(18), doc.setTextColor(20), doc.text("Travel and kit print off", M, 16), doc.setFont("helvetica", "normal"), doc.setFontSize(10), doc.text(`${fixtureTitle(trip)} \xB7 ${locLabel(trip.loc)} \xB7 ${fmtLong(trip.date)}${trip.time ? ` \xB7 ${trip.time}` : ""}`, M, 23), doc.text(`Trip type: ${occLabel}   Kit: ${kit}   Squad: ${squad.length}   Printed: ${(/* @__PURE__ */ new Date()).toLocaleString("en-NZ")}`, M, 28.5);
+    let y = 36;
+    y = head("Bags", y);
+    let bagRows = [];
+    tripBags.forEach((b) => {
+      bagRows.push({ b, row: ["", b.name, b.carrier === "Players" ? "Player" : b.carrier, (t.bags || {})[b.id] ? "Yes" : ""] });
+    }), doc.autoTable({ ...tableOpts, startY: y, head: [["", "Bag", "Carried by", "Ticked in app"]], body: bagRows.map((r) => r.row), columnStyles: { 0: { cellWidth: 8 }, 3: { cellWidth: 26 } }, didDrawCell: box }), y = doc.lastAutoTable.finalY + 8, squad.length && (y = head("Squad and sizes", y), doc.autoTable({
+      ...tableOpts,
+      startY: y,
+      head: [["", "No.", "Name", "Pos", "Match shirt", "Match shorts", "Warm up shirt", "Warm up 1/4 zip", "Training shorts"]],
+      body: [...squad].sort((a, b) => (Number(a.number) || 999) - (Number(b.number) || 999)).map((p) => ["", p.number, p.name, p.position, p.matchShirt, p.matchShorts, p.warmUpShirt, p.warmUpZip, p.trainingShorts]),
+      styles: { ...tableOpts.styles, fontSize: 8 },
+      columnStyles: { 0: { cellWidth: 7 } },
+      didDrawCell: box
+    }), y = doc.lastAutoTable.finalY + 8, y = head("Kit sizes needed (includes 2 spares per size)", y), doc.autoTable({
+      ...tableOpts,
+      startY: y,
+      head: [["Item", "Sizes"]],
+      body: Object.entries(req).map(([k, sizes]) => [UNIFORM_LABELS[k], Object.entries(sizes).sort().map(([s, n]) => `${s}: ${n}`).join("    ")]),
+      columnStyles: { 0: { cellWidth: 36, fontStyle: "bold" } }
+    }), y = doc.lastAutoTable.finalY + 8, y = head("Who carries what", y), doc.autoTable({
+      ...tableOpts,
+      startY: y,
+      head: [["", "Player", "Bag", "Carry-on"]],
+      body: alloc.rows.map((r) => ["", r.player.name, r.bag ? r.bag.name : "No bag", r.carryOn || ""]),
+      columnStyles: { 0: { cellWidth: 8 } },
+      didDrawCell: box
+    }), y = doc.lastAutoTable.finalY + 8), (occ === "away" || occ === "awayStay") && (y = head("Carry-on items", y), doc.autoTable({ ...tableOpts, startY: y, head: [["", "Item"]], body: data.settings.carryOns.map((c) => ["", c]), columnStyles: { 0: { cellWidth: 8 } }, didDrawCell: box }), y = doc.lastAutoTable.finalY + 8), doc.addPage(), y = 16, doc.setFont("helvetica", "bold"), doc.setFontSize(14), doc.text("Bag contents", M, y), y += 4, tripBags.filter((b) => b.items.length).forEach((b) => {
+      let ticks = (t.items || {})[b.id] || {};
+      doc.autoTable({
+        ...tableOpts,
+        startY: y + 2,
+        head: [["", b.name, "App"]],
+        body: b.items.map((i) => ["", kitText(i.name, kit), ticks[i.id] ? "Yes" : ""]),
+        columnStyles: { 0: { cellWidth: 8 }, 2: { cellWidth: 14 } },
+        didDrawCell: box
+      }), y = doc.lastAutoTable.finalY + 4;
+    });
+    let pages = doc.getNumberOfPages();
+    for (let i = 1; i <= pages; i += 1)
+      doc.setPage(i), doc.setFont("helvetica", "normal"), doc.setFontSize(8), doc.setTextColor(110), doc.text("Checked by: ______________________   Date: ____________   Time: ________", M, 290), doc.text(`Page ${i} of ${pages}`, W - M, 290, { align: "right" });
+    return doc;
+  }
+  var TABS = [
+    { id: "today", label: "Today" },
+    { id: "schedule", label: "Schedule" },
+    { id: "bags", label: "Bag packs" },
+    { id: "squad", label: "Squad" },
+    { id: "gameday", label: "Game day" },
+    { id: "guide", label: "Guide and setup" }
+  ];
+  function readHash() {
+    let h = (window.location.hash || "").replace("#", "");
+    return TABS.some((t) => t.id === h) ? h : "today";
+  }
+  function App() {
+    let { data, update, replaceAll, sync } = useAppData(), [now, setNow] = useState(/* @__PURE__ */ new Date()), [tab, setTab] = useState(readHash), [tripId, setTripId] = useState(null), today = todayISO(now), [week, setWeek] = useState(mondayOf(today)), [openDay, setOpenDay] = useState(today), [toast, setToast] = useState(""), downloadsRef = useRef(null), [canSave, setCanSave] = useState(!0);
+    useEffect(() => {
+      let t = setInterval(() => setNow(/* @__PURE__ */ new Date()), 1e3);
+      return () => clearInterval(t);
+    }, []), useEffect(() => {
+      let on = () => setTab(readHash());
+      return window.addEventListener("hashchange", on), () => window.removeEventListener("hashchange", on);
+    }, []), useEffect(() => {
+      !window.claude || typeof window.claude.use != "function" || window.claude.use("downloads").then((d) => {
+        downloadsRef.current = d, setCanSave(!!d);
+      }).catch(() => setCanSave(!1));
+    }, []);
+    let goTo = (id) => {
+      setTab(id);
+      try {
+        history.replaceState(null, "", `#${id}`);
+      } catch {
+        window.location.hash = id;
+      }
+      window.scrollTo(0, 0);
+    }, sorted = useMemo(() => sortFixtures(data.fixtures), [data.fixtures]), md = mdInfo(today, sorted), defaultTrip = md.fixture || md.next || sorted[sorted.length - 1] || null, trip = sorted.find((f) => f.id === tripId) || defaultTrip, saveFile = async (filename, body) => {
+      let d = downloadsRef.current;
+      if (d)
+        try {
+          return await d.save({ filename, data: body }), "Saved.";
+        } catch (e) {
+          return e && e.code === "declined" ? "Download cancelled." : "Downloads are not available here.";
+        }
+      try {
+        let url = URL.createObjectURL(body instanceof Blob ? body : new Blob([body])), a = document.createElement("a");
+        return a.href = url, a.download = filename, document.body.appendChild(a), a.click(), a.remove(), setTimeout(() => URL.revokeObjectURL(url), 2e3), "Saved.";
+      } catch {
+        return "Downloads are not available here.";
+      }
+    }, printOff = async (f) => {
+      if (!window.jspdf) {
+        setToast("The PDF maker has not loaded. Check the connection and try again.");
+        return;
+      }
+      let doc = buildPrintOff({ trip: f, data }), name = `Phoenix print off ${f.round} ${f.opp} ${f.date}.pdf`.replace(/\s+/g, " "), res = await saveFile(name, doc.output("blob"));
+      setToast(res === "Saved." ? "PDF saved. Open it and print." : res);
+    };
+    useEffect(() => {
+      if (!toast) return;
+      let t = setTimeout(() => setToast(""), 4e3);
+      return () => clearTimeout(t);
+    }, [toast]);
+    let ctx = { today, sorted, data, update, replaceAll, sync, goTo, trip, setTripId, week, setWeek, openDay, setOpenDay, printOff, canPrint: canSave, saveFile, canSave }, syncDot = { synced: "Synced", connecting: "Connecting", slow: "Connecting", offline: "Offline", readonly: "View only", local: "This device" }[sync];
+    return /* @__PURE__ */ React.createElement("div", { className: "app" }, /* @__PURE__ */ React.createElement("header", { className: "top" }, /* @__PURE__ */ React.createElement("div", { className: "brand" }, /* @__PURE__ */ React.createElement("span", { className: "mark", "aria-hidden": "true" }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", null, "Phoenix Team Manager"), /* @__PURE__ */ React.createElement("p", { className: "sub" }, "Equipment and travel \xB7 2026-27 A-League"))), /* @__PURE__ */ React.createElement("div", { className: "clock" }, /* @__PURE__ */ React.createElement("span", { className: "clock-time" }, now.toLocaleTimeString("en-NZ", { hour: "2-digit", minute: "2-digit", second: "2-digit" })), /* @__PURE__ */ React.createElement("span", { className: "clock-date" }, now.toLocaleDateString("en-NZ", { weekday: "short", day: "numeric", month: "short", year: "numeric" })), /* @__PURE__ */ React.createElement("span", { className: `sync ${sync}` }, /* @__PURE__ */ React.createElement("span", { className: "dot", "aria-hidden": "true" }), syncDot))), /* @__PURE__ */ React.createElement("nav", { className: "tabs", "aria-label": "Sections" }, TABS.map((t) => /* @__PURE__ */ React.createElement(
+      "a",
+      {
+        key: t.id,
+        href: `#${t.id}`,
+        className: tab === t.id ? "on" : "",
+        "aria-current": tab === t.id ? "page" : void 0,
+        onClick: (e) => {
+          e.preventDefault(), goTo(t.id);
+        }
+      },
+      t.label
+    ))), /* @__PURE__ */ React.createElement("main", null, tab === "today" && /* @__PURE__ */ React.createElement(TodayTab, { ctx }), tab === "schedule" && /* @__PURE__ */ React.createElement(ScheduleTab, { ctx }), tab === "bags" && /* @__PURE__ */ React.createElement(BagsTab, { ctx }), tab === "squad" && /* @__PURE__ */ React.createElement(SquadTab, { ctx }), tab === "gameday" && /* @__PURE__ */ React.createElement(GameDayTab, { ctx }), tab === "guide" && /* @__PURE__ */ React.createElement(GuideTab, { ctx })), /* @__PURE__ */ React.createElement("datalist", { id: "session-codes" }, ["TT", "GYM", "BIKE", "REC/TT", "OFF", "TRAVEL", "TT/TRAVEL"].map((c) => /* @__PURE__ */ React.createElement("option", { key: c, value: c }))), toast && /* @__PURE__ */ React.createElement("div", { className: "toast", role: "status" }, toast));
+  }
+  ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ React.createElement(App, null));
+})();
+
+</script>
+</body>
+</html>
